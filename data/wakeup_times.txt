@@ -1,0 +1,53 @@
+Anchor 2018-01-02 2:45 10:00 2018-01-12 -0:15 7:00
+Monday    anchor+0:00 weekday.sh
+Tuesday   anchor+0:00 weekday.sh
+Wednesday anchor+0:00 weekday.sh
+Thursday  anchor+0:00 weekday.sh
+Friday    anchor+0:00 weekday.sh
+Saturday  6:30 saturday.sh
+Sunday    anchor+1:00 sunday.sh
+holiday   anchor+1:00 holiday.sh
+blacklist anchor+1:00 weekday.sh
+
+2017-10-07 anchor+1:00
+2017-10-29 # Day after party
+
+2017-11-01 9:30 # Retreat Starts
+2017-11-02  # Retreat
+2017-11-03  # Retreat
+2017-11-04  # Retreat
+2017-11-05  # Retreat Ends
+
+2017-11-19  # Out of town for Thanskgiving
+2017-11-20  # Out of town for Thanskgiving
+2017-11-21  # Out of town for Thanskgiving
+2017-11-22  # Out of town for Thanskgiving
+2017-11-23  # Out of town for Thanskgiving
+2017-11-24  # Out of town for Thanskgiving
+2017-11-25  # Out of town for Thanskgiving
+2017-11-26  # Out of town for Thanskgiving
+
+2017-12-23 holiday.sh  # No zen center.
+2017-12-24 holiday.sh
+2017-12-25 holiday.sh
+2017-12-26 holiday.sh
+2017-12-29 holiday.sh
+2017-12-30 holiday.sh  # No zen center.
+
+2018-01-01 holiday.sh
+2018-01-15 holiday.sh
+
+2018-02-19 holiday.sh
+
+2018-05-28 holiday.sh
+
+2018-07-04 holiday.sh
+2018-07-05 holiday.sh
+
+2018-09-03 holiday.sh
+
+2018-11-22 holiday.sh
+2018-11-23 holiday.sh
+
+2018-12-24 holiday.sh
+2018-12-25 holiday.sh

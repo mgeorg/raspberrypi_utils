@@ -1,0 +1,103 @@
+Download image.
+burn image onto sd card.
+remount image.
+touch "ssh" in boot directory.
+create wpa_supplicant.conf in boot directory (will be copied into etc).
+
+country=US
+ctrl_interface=DIR=/var/run/wpa_supplicant GROUP=netdev
+update_config=1
+# RETROPIE CONFIG START
+network={
+  ssid=""  # Set to Network name
+  psk=""  # Set to wifi password
+}
+# RETROPIE CONFIG END
+
+
+update /etc/sshd_config
+set...
+ChallengeResponseAuthentication no
+PermitEmptyPasswords no
+RSAAuthentication yes
+PubkeyAuthentication yes
+
+AllowUsers pi mgeorg  # And remove "pi" later.
+
+# and a whole lot more.
+
+
+update .ssh/authorized_keys to include a key
+
+update .ssh/config on host machine to install alias that uses the key.
+
+
+sync
+
+Remove sd card and place into raspberry pi
+
+Figure out ip address and log in.
+
+Update router to manually set the ip address to a know address.
+
+ssh feeder
+
+
+adduser mgeorg
+password -l mgeorg
+password -l pi
+groups pi
+# Get list of groups to belong to from "groups" on pi
+for GROUP in <list> ; do
+  adduser mgeorg $GROUP
+done
+visudo # update mgeorg to not need a password and remove pi from sudo group.
+
+sudo aptitude update
+sudo aptitude full-upgrade
+sudo aptitude install unattended-upgrades
+sudo aptitude install vim
+sudo aptitude install msmtp-mta heirloom-mailx mailutils
+sudo aptitude install git
+sudo aptitude install python-pip
+
+Copy the vim, bash settings and clone the repo.
+rsync -av 192.168.1.31:settings/ settings/
+rsync -av 192.168.1.31:.mailrc .
+rsync -av 192.168.1.31:.msmtprc .
+git clone 192.168.1.31:wakeup wakeup
+cp .bashrc bashrc_original
+rsync -av 192.168.1.31:.bashrc .
+rsync -av 192.168.1.31:.vimrc .
+sudo rsync -av .mailrc ~root/.mailrc
+sudo rsync -av .msmtprc ~root/.msmtprc
+sudo rsync -av .vimrc ~root/.vimrc
+
+sudo chmod 600 ~root/.msmtprc
+sudo chmod 600 ~mgeorg/.msmtprc
+
+sudo vi /etc/hostname
+
+
+Test mail delivery
+echo "message" | s-nail -s "From Raspberry Pi" -r \
+  'Raspberry Pi of Manfred Georg <manfred.georg.automated@gmail.com>' \
+  manfred.georg@gmail.com
+echo "message" | sudo s-nail -s "From Raspberry Pi root" -r \
+  'Raspberry Pi of Manfred Georg <manfred.georg.automated@gmail.com>' \
+  manfred.georg@gmail.com
+
+
+vi .vimrc  # Make sure everything is right.
+sudo vi .vimrc  # Make sure everything is right.
+
+
+sudo aptitude install festival
+sudo aptitude install apt-listchanges
+pip astral
+sudo vi /etc/apt/apt.conf.d/50unattended-upgrades
+
+
+
+
+
