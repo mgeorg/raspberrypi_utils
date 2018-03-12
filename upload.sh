@@ -22,6 +22,9 @@ git pull pi master
 git push feeder master
 git push pi master
 
+# Update github with new repo
+git push github master
+
 ssh feeder bash ~/wakeup/merge_branch.sh
 ssh pi bash ~/wakeup/merge_branch.sh
 bash ~/raspberrypi/wakeup/merge_branch.sh
