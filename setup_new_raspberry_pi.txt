@@ -61,6 +61,8 @@ sudo aptitude install msmtp-mta heirloom-mailx mailutils
 sudo aptitude install git
 sudo aptitude install python-pip
 
+sudo dpkg-reconfigure tzdata
+
 Copy the vim, bash settings and clone the repo.
 rsync -av 192.168.1.31:settings/ settings/
 rsync -av 192.168.1.31:.mailrc .
