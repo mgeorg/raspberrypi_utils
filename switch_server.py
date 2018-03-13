@@ -136,6 +136,7 @@ GPIO.add_event_detect(button2_pin, GPIO.FALLING, Button2Pressed)
 
 GPIO.output(switch_pin, GPIO.LOW)
 
+
 def CancelTimer():
   global off_timer
   if off_timer is not None:
@@ -144,20 +145,24 @@ def CancelTimer():
     off_timer.join()
     off_timer = None
 
+
 def Quit():
   CancelTimer()
   print('Cleaning up GPIO')
   GPIO.cleanup()
 
+
 def SwitchOffAndCancelTimer():
   CancelTimer()
   SwitchOff()
+
 
 def SwitchOff():
   global switch_on
   print('Turning off')
   switch_on = False
   GPIO.output(switch_pin, GPIO.LOW)
+
 
 def SwitchOn(num_sec):
   global switch_on
@@ -168,6 +173,7 @@ def SwitchOn(num_sec):
   GPIO.output(switch_pin, GPIO.HIGH)
   off_timer = threading.Timer(num_sec, SwitchOff)
   off_timer.start()
+
 
 def ControlLoop():
   global off_timer
@@ -199,13 +205,14 @@ def ControlLoop():
         continue
       print('Unable to understand "%s"' % (data))
 
+
+def SigHandler(signum, frame):
+  raise KeyboardInterrupt('signal %d received' % signum)
+
 # control_loop_thread = threading.Thread(target=ControlLoop)
 # control_loop_thread.daemon = True
 # control_loop_thread.start()
 # control_loop_thread.join()
-
-def SigHandler(signum, frame):
-  raise KeyboardInterrupt('signal %d received' % signum)
 
 signal.signal(signal.SIGABRT, SigHandler)
 signal.signal(signal.SIGALRM, SigHandler)
