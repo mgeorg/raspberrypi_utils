@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-ordinal = [
+ordinal_names = [
   'zeroth',
   'first',
   'second',
@@ -58,7 +58,7 @@ def ordinal(number_as_string):
   if not num_str:
     num_str = '0'
   num = int(num_str)
-  return ordinal[num]
+  return ordinal_names[num]
 
 if __name__ == "__main__":
   import sys
