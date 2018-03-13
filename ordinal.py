@@ -1,12 +1,5 @@
 #!/usr/bin/python
 
-import sys
-
-num_str = sys.argv[1].strip().lstrip('0')
-if not num_str:
-  num_str = '0'
-num = int(num_str)
-
 ordinal = [
   'zeroth',
   'first',
@@ -60,5 +53,13 @@ ordinal = [
   'forty-ninth',
 ]
 
-print(ordinal[num])
+def ordinal(number_as_string):
+  num_str = number_as_string.strip().lstrip('0')
+  if not num_str:
+    num_str = '0'
+  num = int(num_str)
+  return ordinal[num]
 
+if __name__ == "__main__":
+  import sys
+  print(ordinal(sys.argv[1]))
