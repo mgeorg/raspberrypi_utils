@@ -3,6 +3,8 @@
 import datetime
 import os
 import re
+import rpyc
+import rpyc.utils.server
 import signal
 import subprocess
 import sys
@@ -13,6 +15,32 @@ import RPi.GPIO as GPIO
 
 # From current directory
 import morning
+
+global notify_button2_pressed
+global server_thread
+server_thread = None
+global server
+server = None
+
+class WaitForButtonService(rpyc.Service):
+  def exposed_wait_for_button(self):
+    global notify_button2_pressed
+    self.notified = False
+    # notify_button2_pressed = callback
+    notify_button2_pressed = self.notify
+    while not self.notified:
+      time.sleep(.01)
+
+  def notify(self):
+    self.notified = True
+
+
+def RunServer():
+  global server
+  server = rpyc.utils.server.ThreadedServer(
+    WaitForButtonService, port=18861)
+  server.start()
+
 
 switch_on = False
 button1_press_time = datetime.datetime.now()
@@ -62,6 +90,7 @@ def Button1Pressed(channel):
 
 def Button2Pressed(channel):
   global button2_press_time
+  global notify_button2_pressed
   last_press = button2_press_time
   now = datetime.datetime.now()
   button2_press_time = now
@@ -75,6 +104,11 @@ def Button2Pressed(channel):
     button2_press_time = last_press
     return
   print('button2: Pressed')
+  if notify_button2_pressed:
+    print('Notifying service rather than normal behavior.')
+    notify_button2_pressed()
+    notify_button2_pressed = None
+    return
   festival_thread = threading.Thread(target=FestivalNextWakeupTime)
   festival_thread.start()
   time.sleep(1)  # Wait for long press.
@@ -147,9 +181,15 @@ def CancelTimer():
 
 
 def Quit():
+  global server
+  global server_thread
   CancelTimer()
   print('Cleaning up GPIO')
   GPIO.cleanup()
+  print('Cleaning up server')
+  if server and server_thread:
+    server.close()
+    server_thread.join()
 
 
 def SwitchOffAndCancelTimer():
@@ -220,6 +260,8 @@ signal.signal(signal.SIGHUP, SigHandler)
 signal.signal(signal.SIGQUIT, SigHandler)
 signal.signal(signal.SIGTERM, SigHandler)
 try:
+  server_thread = threading.Thread(target=RunServer)
+  server_thread.start()
   ControlLoop()
 finally:
   Quit()
