@@ -93,7 +93,7 @@ def SendMail(subject, content):
   print('Waiting for s-nail to complete.')
   # TODO(mgeorg) test what happens here if the network is down.
   # Test what happens on failure.
-  mail_stdout, mail_stderr = p.communicate(content + '\n.\n')
+  mail_stdout, mail_stderr = p.communicate(content)
   print('Finished sending.')
   logging.info('Finished sending %d.' % p.returncode)
   # TODO(mgeorg) Remove from list.
@@ -108,7 +108,7 @@ def Feed(num_sec):
   GPIO.output(feeder_pin, GPIO.HIGH)
   mailer_threads.append(
       threading.Thread(target=SendMail,
-                       args=('Feeding', 'Feeding succeeded')))
+                       args=('Feeding', 'Feeding succeeded.')))
   mailer_threads[-1].start()
 
 
