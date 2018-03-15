@@ -17,19 +17,38 @@ import RPi.GPIO as GPIO
 import morning
 
 global notify_button2_pressed
+notify_button2_pressed = None
 global server_thread
 server_thread = None
 global server
 server = None
 
 class WaitForButtonService(rpyc.Service):
-  def exposed_wait_for_button(self):
+  def on_connect(self, connection=None):
+    pass
+
+  def on_disconnect(self, connection=None):
     global notify_button2_pressed
+    if notify_button2_pressed == self.notify:
+      notify_button2_pressed = None
+
+  def exposed_wait_for_button(self, timeout_ms=None):
+    global notify_button2_pressed
+    print('Waiting for button, timeout_ms = {}'.format(timeout_ms))
+    timeout_time = None
+    if timeout_ms:
+      timeout_time = (datetime.datetime.now() +
+                      datetime.timedelta(milliseconds=timeout_ms))
     self.notified = False
     # notify_button2_pressed = callback
     notify_button2_pressed = self.notify
-    while not self.notified:
+    while (not self.notified and
+           (timeout_time is None or
+            datetime.datetime.now() < timeout_time)):
       time.sleep(.01)
+    notify_button2_pressed = None
+    print('Done waiting for button, button press = {}'.format(self.notified))
+    return self.notified
 
   def notify(self):
     self.notified = True
