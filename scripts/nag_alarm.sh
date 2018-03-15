@@ -13,14 +13,32 @@ amixer set PCM -- 50%
 sleep 5
 date +"It is %R on %B \
 $(python /home/mgeorg/wakeup/ordinal.py $(date +"%d"))" | festival --tts
-sleep 120
+sleep 300
 echo "Time to get up." | festival --tts
-sleep 120
-echo "You are not playing on your phone are you?" | festival --tts
 sleep 120
 echo "Another 2 minutes of your life passed." | festival --tts
 sleep 120
+echo "I know you are tired, so am I." | festival --tts
+sleep 120
+echo "Sha-la-la-la my oh my." | festival --tts
+sleep 120
+echo "looks like the boy too shy." | festival --tts
+sleep 120
+echo "ain't gonna press the button." | festival --tts
+sleep 120
+echo "Sha-la-la-la my oh my." | festival --tts
+sleep 120
+echo "ain't that a shame." | festival --tts
+sleep 120
+echo "you're gonna miss the button." | festival --tts
+sleep 120
 echo "Just get up already." | festival --tts
+sleep 120
+echo "You really don't have an excuse." | festival --tts
+sleep 120
+echo "You are not playing on your phone are you?" | festival --tts
+sleep 120
+echo "Time will pass just the same if you press the button." | festival --tts
 sleep 120
 echo "I can do this all day." | festival --tts
 sleep 120
@@ -31,4 +49,5 @@ sleep 120
 echo "Final warning." | festival --tts
 sleep 120
 echo "Ok, you win, I give up on you." | festival --tts
+sleep 120
 
