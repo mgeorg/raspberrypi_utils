@@ -67,6 +67,8 @@ Copy the vim, bash settings and clone the repo.
 rsync -av 192.168.1.31:settings/ settings/
 rsync -av 192.168.1.31:.mailrc .
 rsync -av 192.168.1.31:.msmtprc .
+# use /etc/msmtprc instead of ~/.msmtprc
+# copy msmtpq scripts and symlink sendmail to msmtpq
 git clone 192.168.1.31:wakeup wakeup
 cp .bashrc bashrc_original
 rsync -av 192.168.1.31:.bashrc .
@@ -81,7 +83,7 @@ sudo chmod 600 ~mgeorg/.msmtprc
 sudo vi /etc/hostname
 
 
-Test mail delivery
+Test mail delivery (msmtpq has an equally good interface).
 echo "message" | s-nail -s "From Raspberry Pi" -r \
   'Raspberry Pi of Manfred Georg <manfred.georg.automated@gmail.com>' \
   manfred.georg@gmail.com

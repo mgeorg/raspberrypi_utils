@@ -12,10 +12,8 @@ import time
 
 import RPi.GPIO as GPIO
 
-global mailer_threads
 global network_down_times
 global last_network_reset_time
-mailer_threads = []
 network_down_times = []
 last_network_reset_time = (
     datetime.datetime.now() - datetime.timedelta(minutes=60))
@@ -68,27 +66,19 @@ GPIO.output(feeder_pin, GPIO.HIGH)
 GPIO.output(modem_pin, GPIO.LOW)
 
 def Quit():
-  global mailer_threads
-  for t in mailer_threads:
-    if isinstance(t, threading._Timer):
-      print('cancelling timer')
-      t.cancel()
-    t.join()
-  mailer_threads = []
   print('Cleaning up GPIO')
   logging.info('Cleaning up GPIO.')
   GPIO.cleanup()
   logging.info('Quitting.')
 
 
-def SendMail(subject, content, timeout=None):
+def SendMail(subject, content):
   start_time = datetime.datetime.now()
   print('Sending email:\nsubject: %s\nbody:\n%s' % (subject, content))
   logging.info('Sending email:\nsubject: %s\nbody:\n%s' % (subject, content))
   p = subprocess.Popen(['msmtpq', 'manfred.georg@gmail.com'],
       stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-      '-s', subject,
-      '-r', 
+  # This will timeout after a few seconds if there is no network connection.
   p.communicate(
 """From: Scarfie's Feeder <manfred.georg.automated@gmail.com>
 Subject: {}
@@ -98,26 +88,7 @@ Subject: {}
 ---
 Message creation time: {}
 """.format(subject, content, str(datetime.datetime.now())))
-  p.stdin.close()
-  p.poll()
-  while (p.returncode is None and
-         timeout is not None and
-         datetime.datetime.now() < start_time + timeout):
-    p.poll()
-    time.sleep(.01)
-  if p.returncode is None:
-    print('Process hung, terminating it.')
-    p.terminate()
-    p.wait()
-    print('Writing message to file.')
-    with open('/home/mgeorg/switch_unsent_mail.txt', 'a+') as f:
-      f.write('Subject: ' + subject)
-      f.write('\nContent: ' + content)
-      f.write('\nEnd')
-  mail_stdout = p.stdout.read()
-  mail_stderr = p.stderr.read()
-  print('Finished sending.')
-  logging.info('Finished sending %d.' % p.returncode)
+  logging.info('Finished sending/enqueuing %d.' % p.returncode)
 
 
 def Feed(num_sec):
@@ -127,14 +98,7 @@ def Feed(num_sec):
   GPIO.output(feeder_pin, GPIO.LOW)
   time.sleep(num_sec)
   GPIO.output(feeder_pin, GPIO.HIGH)
-  mailer_threads.append(
-      threading.Thread(
-          target=SendMail,
-          args=('Feeding',
-                'Feeding succeeded.\n\n' + str(datetime.datetime.now()),
-                datetime.timedelta(seconds=10))))
-  mailer_threads[-1].start()
-  # TODO(mgeorg) Remove from list after it runs.
+  SendMail('Feeding', 'Feeding succeeded.')
 
 
 def NetworkIsDown():
@@ -167,17 +131,10 @@ def Modem(num_sec):
   GPIO.output(modem_pin, GPIO.LOW)
   print('Power restored to modem.')
   logging.info('Power restored to modem.')
-  # TODO(mgeorg) There will be no network at this point.
-  mailer_threads.append(
-      threading.Timer(
-          3,
-          # 300,  # 5 min.
-          function=SendMail,
-          args=('Modem Power-Cycled',
-                'The Modem was power cycled.\n\n' +
-                str(datetime.datetime.now()),
-                datetime.timedelta(seconds=10))))
-  mailer_threads[-1].start()
+  # There will be no network at this point.
+  SendMail('Modem Power-Cycled',
+           'The Modem was power cycled at {}.'.format(
+               str(datetime.datetime.now())))
 
 
 def ControlLoop():
