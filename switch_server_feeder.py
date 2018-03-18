@@ -44,7 +44,7 @@ try:
 except IOError:
   print('Can not read pid file.  Continuing...')
 
-with open('/tmp/switch_server_feeder_pid.txt', 'w') as f:
+with open('/tmp/switch_server_feeder_pid.txt', 'w+') as f:
   f.write(str(os.getpid()))
   f.write('\n')
 
@@ -81,22 +81,43 @@ def Quit():
   logging.info('Quitting.')
 
 
-def SendMail(subject, content):
-  print('Sending email:\nsubject: %s\nbody:\n%s' % (subject,content))
-  logging.info('Sending email:\nsubject: %s\nbody:\n%s' % (subject,content))
-  print('opening subprocess s-nail.')
-  p = subprocess.Popen([
-      's-nail', '-s', subject,
-      '-r', 'Scarfie\'s Feeder <manfred.georg.automated@gmail.com>',
-      'manfred.georg@gmail.com'],
+def SendMail(subject, content, timeout=None):
+  start_time = datetime.datetime.now()
+  print('Sending email:\nsubject: %s\nbody:\n%s' % (subject, content))
+  logging.info('Sending email:\nsubject: %s\nbody:\n%s' % (subject, content))
+  p = subprocess.Popen(['msmtpq', 'manfred.georg@gmail.com'],
       stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-  print('Waiting for s-nail to complete.')
-  # TODO(mgeorg) test what happens here if the network is down.
-  # Test what happens on failure.
-  mail_stdout, mail_stderr = p.communicate(content)
+      '-s', subject,
+      '-r', 
+  p.communicate(
+"""From: Scarfie's Feeder <manfred.georg.automated@gmail.com>
+Subject: {}
+
+{}
+
+---
+Message creation time: {}
+""".format(subject, content, str(datetime.datetime.now())))
+  p.stdin.close()
+  p.poll()
+  while (p.returncode is None and
+         timeout is not None and
+         datetime.datetime.now() < start_time + timeout):
+    p.poll()
+    time.sleep(.01)
+  if p.returncode is None:
+    print('Process hung, terminating it.')
+    p.terminate()
+    p.wait()
+    print('Writing message to file.')
+    with open('/home/mgeorg/switch_unsent_mail.txt', 'a+') as f:
+      f.write('Subject: ' + subject)
+      f.write('\nContent: ' + content)
+      f.write('\nEnd')
+  mail_stdout = p.stdout.read()
+  mail_stderr = p.stderr.read()
   print('Finished sending.')
   logging.info('Finished sending %d.' % p.returncode)
-  # TODO(mgeorg) Remove from list.
 
 
 def Feed(num_sec):
@@ -107,9 +128,13 @@ def Feed(num_sec):
   time.sleep(num_sec)
   GPIO.output(feeder_pin, GPIO.HIGH)
   mailer_threads.append(
-      threading.Thread(target=SendMail,
-                       args=('Feeding', 'Feeding succeeded.')))
+      threading.Thread(
+          target=SendMail,
+          args=('Feeding',
+                'Feeding succeeded.\n\n' + str(datetime.datetime.now()),
+                datetime.timedelta(seconds=10))))
   mailer_threads[-1].start()
+  # TODO(mgeorg) Remove from list after it runs.
 
 
 def NetworkIsDown():
@@ -134,18 +159,24 @@ def NetworkIsDown():
 
 
 def Modem(num_sec):
-  print('Resetting modem')
-  logging.info('Resetting modem')
+  print('Resetting modem.')
+  logging.info('Resetting modem.')
   # Modem relay turns on when control is grounded.
   GPIO.output(modem_pin, GPIO.HIGH)
   time.sleep(num_sec)
   GPIO.output(modem_pin, GPIO.LOW)
+  print('Power restored to modem.')
+  logging.info('Power restored to modem.')
   # TODO(mgeorg) There will be no network at this point.
   mailer_threads.append(
-      threading.Timer(300,  # 5 min.
-                      function=SendMail,
-                      args=('Modem Power-Cycled',
-                            'The Modem was power cycled.')))
+      threading.Timer(
+          3,
+          # 300,  # 5 min.
+          function=SendMail,
+          args=('Modem Power-Cycled',
+                'The Modem was power cycled.\n\n' +
+                str(datetime.datetime.now()),
+                datetime.timedelta(seconds=10))))
   mailer_threads[-1].start()
 
 
