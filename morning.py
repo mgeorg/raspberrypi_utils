@@ -38,6 +38,12 @@ class Morning(object):
     self.day_wakeups = [None] * len(self.day_to_number)
     self.scripts = set()
     self.blacklist = dict()
+    self.delay = 0
+    try:
+      with open('/home/mgeorg/wakeup/data/delay.txt', 'r') as f:
+        self.delay = int(f.read().strip())
+    except:
+      self.delay = 0
     with open('/home/mgeorg/wakeup/data/wakeup_times.txt', 'r') as f:
       for line in f.read().splitlines():
         line = line.strip()
@@ -117,7 +123,8 @@ class Morning(object):
         if do_wakeup:
           print('Using script %s' % script)
           timer = next_sunrise.WakeupTimer(self.anchor, date_key,
-                                           sunrise_offset, from_anchor, script)
+                                           sunrise_offset, from_anchor,
+                                           self.delay, script)
         else:
           print('Skipping blacklisted date.')
           timer = None
@@ -128,7 +135,7 @@ class Morning(object):
       day = current_time.weekday()
       sunrise_offset, from_anchor, script = self.day_wakeups[day]
       timer = next_sunrise.WakeupTimer(self.anchor, date_key, sunrise_offset,
-                                       from_anchor, script)
+                                       from_anchor, self.delay, script)
     return timer
 
   def GetNextTimer(self):
@@ -172,9 +179,16 @@ if __name__ == "__main__":
   print(timer.Message())
 
   print('Waiting for wakeup time.')
-  if not timer.WaitUntilWakeup(datetime.timedelta(hours=9)):
+  if not timer.WaitUntilWakeup(datetime.timedelta(minutes=10)):
     # Early termination is not an error.
     sys.exit(0)
+
+  try:
+    with open('/home/mgeorg/wakeup/data/delay.txt', 'w') as f:
+      f.write('0\n')
+  except:
+    pass
+
   print('Running script "%s".' % timer.script)
   subprocess.check_call(['/bin/bash',
                          '/home/mgeorg/wakeup/scripts/%s' % timer.script])

@@ -99,12 +99,17 @@ def Button1Pressed(channel):
     time.sleep(1)  # Wait for long press.
     if (GPIO.input(button1_pin) != GPIO.LOW):
       print('button1: short press.')
+      button1_press_time = datetime.datetime.now()
       return
     print('button1: long press.')
     SwitchOn(45*60)  # 45 min
     festival_thread = threading.Thread(
         target=RunFestival, args=('45 minutes.',))
     festival_thread.start()
+  # Set button press time as the time at which we're returning from
+  # the function.  There may be invocations of the function triggered
+  # by transients that are waiting to execute.
+  button1_press_time = datetime.datetime.now()
 
 
 def Button2Pressed(channel):
@@ -128,13 +133,44 @@ def Button2Pressed(channel):
     notify_button2_pressed()
     notify_button2_pressed = None
     return
-  festival_thread = threading.Thread(target=FestivalNextWakeupTime)
-  festival_thread.start()
   time.sleep(1)  # Wait for long press.
   if (GPIO.input(button2_pin) != GPIO.LOW):
     print('button2: short press.')
+    festival_thread = threading.Thread(target=FestivalNextWakeupTime)
+    festival_thread.start()
+    button2_press_time = datetime.datetime.now()
     return
   print('button2: long press.')
+  try:
+    with open('/home/mgeorg/wakeup/data/delay.txt', 'r') as f:
+      delay = int(f.read().strip())
+  except:
+    delay = 0
+  try:
+    with open('/home/mgeorg/wakeup/data/delay.txt', 'w') as f:
+      f.write('{}\n'.format(delay+15))
+  except:
+    pass
+  delay_timedelta = datetime.timedelta(minutes=delay+15)
+  delay_hours = (delay+15) / 60
+  delay_minutes = (delay+15) % 60
+  if delay_hours > 0:
+    hour_plural = ''
+    if delay_hours > 1:
+      hour_plural = 's'
+    delay_string = 'Delay increased to {} hour{} and {} minutes.'.format(
+        delay_hours, hour_plural, delay_minutes)
+  else:
+    delay_string = 'Delay increased to {} minutes.'.format(
+        delay_minutes)
+  print(delay_string)
+
+  festival_thread = threading.Thread(target=RunFestival, args=(delay_string,))
+  festival_thread.start()
+  # Set button press time as the time at which we're returning from
+  # the function.  There may be invocations of the function triggered
+  # by transients that are waiting to execute.
+  button2_press_time = datetime.datetime.now()
 
 
 def FestivalNextWakeupTime():

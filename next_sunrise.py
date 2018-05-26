@@ -91,10 +91,12 @@ class AnchorTime(object):
 
 
 class WakeupTimer(object):
-  def __init__(self, anchor, date_string, offset_string, from_anchor, script):
+  def __init__(self, anchor, date_string, offset_string, from_anchor,
+               delay, script):
     self.anchor_offset = None
     self.anchor_max_wakeup = None
     self.sunrise_adjusted = None
+    self.delay = delay
     self.script = script
 
     if isinstance(date_string, datetime.date):
@@ -141,11 +143,29 @@ class WakeupTimer(object):
       print('Sunrise with Offset:  %s' % str(self.sunrise_adjusted))
     print('Max wakeup:           %s' % str(self.max_wakeup))
     print('Wakeup time:          %s' % str(self.wakeup_time))
+    print('delay:                %s' % str(self.delay))
     print('script:               "%s"' % str(self.script))
 
   def Message(self):
+    if self.delay and self.delay > 0:
+      wakeup_time = self.wakeup_time + datetime.timedelta(minutes=self.delay)
+      delay_hours = self.delay / 60
+      delay_minutes = self.delay % 60
+      if delay_hours > 0:
+        hour_plural = ''
+        if delay_hours > 1:
+          hour_plural = 's'
+        delay_string = '.  Delayed by {} hour{} and {} minutes.'.format(
+            delay_hours, hour_plural, delay_minutes)
+      else:
+        delay_string = '.  Delayed by {} minutes.'.format(
+            delay_minutes)
+    else:
+      wakeup_time = self.wakeup_time
+      delay_string = ''
+
     current_time = datetime.datetime.now()
-    wakeup_midnight = self.wakeup_time.replace(
+    wakeup_midnight = wakeup_time.replace(
         hour=0, minute=0, second=0, microsecond=0)
     days = (wakeup_midnight - current_time.replace(
         hour=0, minute=0, second=0, microsecond=0)).days
@@ -155,11 +175,18 @@ class WakeupTimer(object):
       day_str = 'Tomorrow'
     else:
       day_str = 'In %d days' % days
-    return '%s at %d:%02d' % (
-        day_str, self.wakeup_time.hour, self.wakeup_time.minute)
+    return '{day_string} at {hour}:{minute:02}{delay_string}'.format(
+        day_string=day_str, hour=wakeup_time.hour,
+        minute=wakeup_time.minute, delay_string=delay_string)
 
   def WaitUntilWakeup(self, max_delta=None):
-    d = self.wakeup_time - datetime.datetime.now()
+    if self.delay and self.delay > 0:
+      print('Delaying wakeup_time by {} minutes'.format(self.delay))
+      wakeup_time = self.wakeup_time + datetime.timedelta(minutes=self.delay)
+    else:
+      wakeup_time = self.wakeup_time
+
+    d = wakeup_time - datetime.datetime.now()
     if d.days < 0:
       raise ValueError('It is already after Wakeup time.')
     minutes, seconds = divmod(d.seconds, 60)
@@ -184,20 +211,10 @@ class WakeupTimer(object):
       print('Sleep until wakeup time (waiting %02d:%02d:%02d)' % (
                 hours,minutes,seconds))
       time.sleep(10)
-      d = self.wakeup_time - datetime.datetime.now()
+      d = wakeup_time - datetime.datetime.now()
     return True
 
 
 if __name__ == "__main__":
-  assert len(sys.argv) == 3
-  current_time = datetime.datetime.now()
-  date_key = '%04d-%02d-%02d' % (current_time.year,
-                                 current_time.month,
-                                 current_time.day)
-  timer = WakeupTimer(date_key, sys.argv[1], sys.argv[2], None)
-  timer.Print()
-  # if not timer.WaitUntilWakeup():
-  if not timer.WaitUntilWakeup(datetime.timedelta(hours=9)):
-    sys.exit(1)
-  sys.exit(0)
+  sys.exit(1)
 
