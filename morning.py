@@ -41,8 +41,14 @@ class Morning(object):
     self.delay = 0
     try:
       with open('/home/mgeorg/wakeup/data/delay.txt', 'r') as f:
-        self.delay = int(f.read().strip())
+        m = re.match(r'\s*(\d{4})-(\d{2})-(\d{2})\s+(\d+)', f.read())
+        if not m:
+          raise ValueError('delay.txt did not contain right values.')
+        self.delay_date = datetime.date(
+            year=int(m.group(1)), month=int(m.group(2)), day=int(m.group(3)))
+        self.delay = int(m.group(4))
     except:
+      self.delay_date = None
       self.delay = 0
     with open('/home/mgeorg/wakeup/data/wakeup_times.txt', 'r') as f:
       for line in f.read().splitlines():
@@ -99,6 +105,15 @@ class Morning(object):
     date_key = '%04d-%02d-%02d' % (current_time.year,
                                    current_time.month,
                                    current_time.day)
+    delay = 0
+    if self.delay_date:
+      delay_date_key = '%04d-%02d-%02d' % (
+          self.delay_date.year,
+          self.delay_date.month,
+          self.delay_date.day)
+      if delay_date_key == date_key:
+        delay = self.delay
+
     if date_key in self.blacklist:
       directive = self.blacklist[date_key]
       print('Date is in blacklist file (date %s) with directive "%s".' % (
@@ -124,7 +139,7 @@ class Morning(object):
           print('Using script %s' % script)
           timer = next_sunrise.WakeupTimer(self.anchor, date_key,
                                            sunrise_offset, from_anchor,
-                                           self.delay, script)
+                                           delay, script)
         else:
           print('Skipping blacklisted date.')
           timer = None
@@ -135,14 +150,14 @@ class Morning(object):
       day = current_time.weekday()
       sunrise_offset, from_anchor, script = self.day_wakeups[day]
       timer = next_sunrise.WakeupTimer(self.anchor, date_key, sunrise_offset,
-                                       from_anchor, self.delay, script)
+                                       from_anchor, delay, script)
     return timer
 
   def GetNextTimer(self):
     current_time = datetime.datetime.now()
     timer_time = current_time
     timer = self.GetTimer(current_time)
-    if not timer or timer.wakeup_time < current_time:
+    if not timer or timer.WakeupTime() < current_time:
       print('It is after wakeup today.')
       timer_time = current_time + datetime.timedelta(days=1)
       timer = self.GetTimer(timer_time)
@@ -185,7 +200,7 @@ if __name__ == "__main__":
 
   try:
     with open('/home/mgeorg/wakeup/data/delay.txt', 'w') as f:
-      f.write('0\n')
+      f.write('')
   except:
     pass
 

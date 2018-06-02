@@ -179,6 +179,23 @@ class WakeupTimer(object):
         day_string=day_str, hour=wakeup_time.hour,
         minute=wakeup_time.minute, delay_string=delay_string)
 
+  def WakeupTime(self):
+    if self.delay and self.delay > 0:
+      print('Delaying wakeup_time by {} minutes'.format(self.delay))
+      wakeup_time = self.wakeup_time + datetime.timedelta(minutes=self.delay)
+    else:
+      wakeup_time = self.wakeup_time
+    return wakeup_time
+
+  def WakeupDate(self):
+    if self.delay and self.delay > 0:
+      print('Delaying wakeup_time by {} minutes'.format(self.delay))
+      wakeup_time = self.wakeup_time + datetime.timedelta(minutes=self.delay)
+    else:
+      wakeup_time = self.wakeup_time
+    return '{:04}-{:02}-{:02}'.format(
+        wakeup_time.year, wakeup_time.month, wakeup_time.day)
+
   def WaitUntilWakeup(self, max_delta=None):
     if self.delay and self.delay > 0:
       print('Delaying wakeup_time by {} minutes'.format(self.delay))

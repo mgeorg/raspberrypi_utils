@@ -141,14 +141,26 @@ def Button2Pressed(channel):
     button2_press_time = datetime.datetime.now()
     return
   print('button2: long press.')
+  morn = morning.Morning()
+  timer = morn.GetNextTimer()
+  wakeup_date_key = timer.WakeupDate()
   try:
+    delay = 0
+    delay_date_key = None
     with open('/home/mgeorg/wakeup/data/delay.txt', 'r') as f:
-      delay = int(f.read().strip())
+      m = re.match(r'\s*(\d{4}-\d{2}-\d{2})\s+(\d+)', f.read())
+      if not m:
+        raise ValueError('delay.txt did not contain right values.')
+      delay_date_key = m.group(1)
+      delay = int(m.group(2))
   except:
+    delay_date_key = None
+    delay = 0
+  if delay_date_key != wakeup_date_key:
     delay = 0
   try:
     with open('/home/mgeorg/wakeup/data/delay.txt', 'w') as f:
-      f.write('{}\n'.format(delay+15))
+      f.write('{} {}\n'.format(wakeup_date_key, delay+15))
   except:
     pass
   delay_timedelta = datetime.timedelta(minutes=delay+15)
