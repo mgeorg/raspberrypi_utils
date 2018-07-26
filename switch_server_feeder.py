@@ -122,6 +122,15 @@ def NetworkIsDown():
     Modem(10)
 
 
+def NetworkIsUp():
+  global last_network_reset_time
+  global network_down_times
+  if network_down_times:
+    network_down_times = []
+    print('Network is back up.')
+    logging.info('Recording that network is back up.')
+
+
 def Modem(num_sec):
   print('Resetting modem.')
   logging.info('Resetting modem.')
@@ -171,6 +180,10 @@ def ControlLoop():
       m = re.match(r'network_is_down$', data)
       if m:
         NetworkIsDown()
+        continue
+      m = re.match(r'network_is_up$', data)
+      if m:
+        NetworkIsUp()
         continue
       print('Unable to understand "%s"' % (data))
 

@@ -5,4 +5,6 @@ DATA=$(curl --silent --show-error --max-time 10 \
 if [[ "$?" != "0" || ! -z "$DATA" ]]; then
   # echo "Connection failed."
   (echo "network_is_down" >> /tmp/feeder_command.fifo) &
+else
+  (echo "network_is_up" >> /tmp/feeder_command.fifo) &
 fi
