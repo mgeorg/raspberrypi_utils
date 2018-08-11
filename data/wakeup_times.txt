@@ -47,6 +47,11 @@ blacklist anchor+1:00 weekday.sh
 2018-07-04 holiday.sh
 2018-07-05 holiday.sh
 
+2018-08-11 9:00 sunday.sh # No zen center.
+2018-08-18 9:00 sunday.sh # No zen center.
+2018-08-25 9:00 sunday.sh # No zen center.
+2018-09-01 9:00 sunday.sh # No zen center.
+
 2018-09-03 holiday.sh
 
 2018-11-22 holiday.sh
