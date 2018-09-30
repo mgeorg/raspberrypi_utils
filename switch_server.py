@@ -85,7 +85,7 @@ def Button1Pressed(channel):
   if last_press + datetime.timedelta(milliseconds=300) > now:
     print('button1: bounced button press ignored.')
     return
-  time.sleep(0.05)  # Wait 50ms for transients to disappear.
+  time.sleep(0.01)  # Wait 10ms for transients to disappear.
   if (GPIO.input(button1_pin) != GPIO.LOW):
     print('button1: transient detected.')
     # Reset press time to previous press time.
@@ -121,7 +121,7 @@ def Button2Pressed(channel):
   if last_press + datetime.timedelta(milliseconds=300) > now:
     print('button2: bounced button press ignored.')
     return
-  time.sleep(0.05)  # Wait 50ms for transients to disappear.
+  time.sleep(0.01)  # Wait 10ms for transients to disappear.
   if (GPIO.input(button2_pin) != GPIO.LOW):
     print('button2: transient detected.')
     # Reset press time to previous press time.

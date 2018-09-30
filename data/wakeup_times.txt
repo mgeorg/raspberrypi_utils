@@ -54,6 +54,9 @@ blacklist anchor+1:00 weekday.sh
 
 2018-09-03 holiday.sh
 
+2018-09-17 # Jetlag
+2018-09-18 6:00 weekday.sh # Recovering from Jetlag
+
 2018-11-22 holiday.sh
 2018-11-23 holiday.sh
 
