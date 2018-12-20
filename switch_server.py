@@ -106,6 +106,9 @@ def Button1Pressed(channel):
     festival_thread = threading.Thread(
         target=RunFestival, args=('45 minutes.',))
     festival_thread.start()
+    # Wait 5 seconds so that holding down the button can't
+    # trigger further actions.
+    time.sleep(5)
   # Set button press time as the time at which we're returning from
   # the function.  There may be invocations of the function triggered
   # by transients that are waiting to execute.
