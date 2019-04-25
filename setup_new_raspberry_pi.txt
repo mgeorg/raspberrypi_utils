@@ -1,5 +1,8 @@
 Download image.
 burn image onto sd card.
+# DO NOT RESIZE THE ROOT PARTITION.  This will just mess things up so
+# it won't boot.  Raspbian seems to automatically resize the partition on
+# first boot anyway.
 remount image.
 touch "ssh" in boot directory.
 create wpa_supplicant.conf in boot directory (will be copied into etc).
@@ -15,9 +18,10 @@ network={
 # RETROPIE CONFIG END
 
 
-update /etc/sshd_config
+update /etc/ssh/sshd_config
 set...
 ChallengeResponseAuthentication no
+PasswordAuthentication no
 PermitEmptyPasswords no
 RSAAuthentication yes
 PubkeyAuthentication yes
@@ -43,45 +47,83 @@ Update router to manually set the ip address to a know address.
 ssh feeder
 
 
+# OLD INSTRUCTIONS, this just creates an extra user named mgeorg,
+# it doesn't rename pi to mgeorg.
 adduser mgeorg
-password -l mgeorg
-password -l pi
+passwd -l mgeorg
+passwd -l pi
 groups pi
 # Get list of groups to belong to from "groups" on pi
 for GROUP in <list> ; do
   adduser mgeorg $GROUP
 done
 visudo # update mgeorg to not need a password and remove pi from sudo group.
+vi /etc/groups # and remove pi from sudo group
+sudo rm /etc/sudoers.d/010_pi-nopasswd
+
+# Backup the authentication files.
+sudo su
+cd /etc
+sudo tar -cvf /root/authfiles.tar passwd group shadow gshadow sudoers lightdm/lightdm.conf systemd/system/autologin@.service sudoers.d/* polkit-1/localauthority.conf.d/60-desktop-policy.conf
+sudo chmod 600 /root/authfiles.tar
+
+# NEW INSTRUCTIONS, rename pi to mgeorg.  First follow the above instructions
+# with user tempuser, and create a password so you can login as tempuser.
+
+sudo sed -i.$(date +'%y%m%d_%H%M%S') 's/\bpi\b/mgeorg/g' \
+  passwd group shadow gshadow sudoers lightdm/lightdm.conf \
+  systemd/system/autologin@.service sudoers.d/* \
+  polkit-1/localauthority.conf.d/60-desktop-policy.conf
+
+# And make sure they all work.  For example change mgeorg-greeter back to
+# pi-greeter in lightdm/lightdm.conf
+sudo vi passwd group shadow gshadow sudoers lightdm/lightdm.conf \
+  systemd/system/autologin@.service sudoers.d/* \
+  polkit-1/localauthority.conf.d/60-desktop-policy.conf
+
+# Also, you should delete tempuser at this point.
 
 sudo aptitude update
 sudo aptitude full-upgrade
-sudo aptitude install unattended-upgrades
-sudo aptitude install vim
+sudo aptitude install vim git python-pip unattended-upgrades apt-listchanges
 sudo aptitude install msmtp-mta heirloom-mailx mailutils
-sudo aptitude install git
-sudo aptitude install python-pip
+pip install astral
+sudo vi /etc/apt/apt.conf.d/50unattended-upgrades
 
 sudo dpkg-reconfigure tzdata
 
+sudo vi /etc/hostname
+ssh-keygen
+# get the public key onto 192.168.1.33, at least temporarily
+
 Copy the vim, bash settings and clone the repo.
-rsync -av 192.168.1.31:settings/ settings/
-rsync -av 192.168.1.31:.mailrc .
-rsync -av 192.168.1.31:.msmtprc .
-# use /etc/msmtprc instead of ~/.msmtprc
-# copy msmtpq scripts and symlink sendmail to msmtpq
-git clone 192.168.1.31:wakeup wakeup
+rsync -av 192.168.1.33:settings/ settings/
+rsync -av 192.168.1.33:bin/ bin/
 cp .bashrc bashrc_original
-rsync -av 192.168.1.31:.bashrc .
-rsync -av 192.168.1.31:.vimrc .
+rsync -av 192.168.1.33:.bashrc .
+rsync -av 192.168.1.33:.vimrc .
+
+git clone 192.168.1.33:wakeup wakeup
+
+rsync -av 192.168.1.33:.mailrc .
+# use /etc/msmtprc instead of ~/.msmtprc
+rsync -av 192.168.1.33:/etc/msmtprc blah_msmtprc
+sudo cp blah_msmtprc /etc/msmtprc
 sudo rsync -av .mailrc ~root/.mailrc
-sudo rsync -av .msmtprc ~root/.msmtprc
 sudo rsync -av .vimrc ~root/.vimrc
 
-sudo chmod 600 ~root/.msmtprc
-sudo chmod 600 ~mgeorg/.msmtprc
+# copy msmtpq scripts and symlink sendmail to msmtpq
+mkdir ~/.msmtp.queue
+mkdir ~/log
+sudo mkdir ~root/.msmtp.queue
+sudo mkdir ~root/log
+sudo ln -s /home/mgeorg/bin/msmtpq /usr/bin/msmtpq
+sudo mv /usr/sbin/sendmail /root/sendmail_original
+sudo ln -s /usr/bin/msmtpq /usr/sbin/sendmail
 
-sudo vi /etc/hostname
 
+# sudo chmod 600 ~root/.msmtprc
+# sudo chmod 600 ~mgeorg/.msmtprc
 
 Test mail delivery (msmtpq has an equally good interface).
 echo "message" | s-nail -s "From Raspberry Pi" -r \
@@ -97,10 +139,8 @@ sudo vi .vimrc  # Make sure everything is right.
 
 
 sudo aptitude install festival
-sudo aptitude install apt-listchanges
-pip astral
-sudo vi /etc/apt/apt.conf.d/50unattended-upgrades
 
+sudo shutdown -r now  # Make sure everything comes back up well.
 
 
 
