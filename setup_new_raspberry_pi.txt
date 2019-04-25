@@ -101,6 +101,14 @@ sudo aptitude install apt-listchanges
 pip astral
 sudo vi /etc/apt/apt.conf.d/50unattended-upgrades
 
+sudo vi /etc/rc.local
+### Add the following ###
+rm -rf /home/mgeorg/.msmtpq.queue/.lock
+rm -rf /root/.msmtpq.queue/.lock
+nohup python /home/mgeorg/send_mail.py "Alarm Clock booted up." "Alarm Clock booted up at $(date)" &
+echo "$(date)" >> /home/mgeorg/booted_up
+### End snippet ###
+
 
 
 
