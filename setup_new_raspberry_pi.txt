@@ -140,8 +140,17 @@ sudo vi .vimrc  # Make sure everything is right.
 
 sudo aptitude install festival
 
+sudo vi /etc/rc.local
+### Add the following ###
+rm -rf /home/mgeorg/.msmtpq.queue/.lock
+rm -rf /root/.msmtpq.queue/.lock
+MESG='Alarm Clock booted up'  # Update to name the actual device.
+nohup python /home/mgeorg/send_mail.py "$MESG." "$MESG at $(date)" &
+echo "$(date)" >> /home/mgeorg/booted_up
+### End snippet ###
+
+
+
 sudo shutdown -r now  # Make sure everything comes back up well.
-
-
 
 

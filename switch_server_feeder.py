@@ -51,6 +51,22 @@ logging.basicConfig(filename='/home/mgeorg/feeder_log.txt',
                     level=logging.INFO)
 logging.info('Starting up.')
 
+def GetNetworkLogger(name, log_file, level=logging.INFO):
+  formatter = logging.Formatter('%(asctime)s %(message)s')
+  handler = logging.FileHandler(log_file)
+  handler.setFormatter(formatter)
+  logger = logging.getLogger(name)
+  logger.setLevel(level)
+  logger.addHandler(handler)
+  return logger
+
+global network_log_file
+network_log_file = '/home/mgeorg/network_log.txt'
+global network_logger
+network_logger = GetNetworkLogger('network_logger', network_log_file)
+network_logger.info('Starting up.')
+
+
 GPIO.setmode(GPIO.BCM)
 feeder_pin = 2  # Broadcom pin 02 (PI pin 3)
 # Connect feeder pin to relay controller
@@ -66,16 +82,18 @@ GPIO.output(feeder_pin, GPIO.HIGH)
 GPIO.output(modem_pin, GPIO.LOW)
 
 def Quit():
+  global network_logger
   print('Cleaning up GPIO')
   logging.info('Cleaning up GPIO.')
   GPIO.cleanup()
   logging.info('Quitting.')
+  network_logger.info('Quitting.')
 
 
 def SendMail(subject, content):
   start_time = datetime.datetime.now()
-  print('Sending email:\nsubject: %s\nbody:\n%s' % (subject, content))
-  logging.info('Sending email:\nsubject: %s\nbody:\n%s' % (subject, content))
+  print('Sending email:\nsubject: {}\n'.format(subject))
+  logging.info('Sending email with subject: {}'.format(subject))
   p = subprocess.Popen(['msmtpq', 'manfred.georg@gmail.com'],
       stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
   # This will timeout after a few seconds if there is no network connection.
@@ -88,7 +106,7 @@ Subject: {}
 ---
 Message creation time: {}
 """.format(subject, content, str(datetime.datetime.now())))
-  logging.info('Finished sending/enqueuing %d.' % p.returncode)
+  logging.info('Finished sending/enqueuing, returncode = %d.' % p.returncode)
 
 
 def Feed(num_sec):
@@ -104,8 +122,10 @@ def Feed(num_sec):
 def NetworkIsDown():
   global last_network_reset_time
   global network_down_times
-  print('Recording that network is down.')
-  logging.info('Recording that network is down.')
+  global network_logger
+  print('Network is down.')
+  logging.info('Network is down.')
+  network_logger.info('Network is down.')
   now_time = datetime.datetime.now()
   network_down_times.append(now_time)
   pruned_times = []
@@ -125,25 +145,36 @@ def NetworkIsDown():
 def NetworkIsUp():
   global last_network_reset_time
   global network_down_times
+  global network_logger
   if network_down_times:
     network_down_times = []
     print('Network is back up.')
-    logging.info('Recording that network is back up.')
+    logging.info('Network is back up.')
+    network_logger.info('Network is back up.')
 
 
 def Modem(num_sec):
+  global network_logger
   print('Resetting modem.')
   logging.info('Resetting modem.')
+  network_logger.info('Resetting modem.')
   # Modem relay turns on when control is grounded.
   GPIO.output(modem_pin, GPIO.HIGH)
   time.sleep(num_sec)
   GPIO.output(modem_pin, GPIO.LOW)
   print('Power restored to modem.')
   logging.info('Power restored to modem.')
+  network_logger.info('Power restored to modem.')
   # There will be no network at this point.
+  with open(network_log_file, 'r') as f:
+    network_log_lines = f.read().splitlines()
+  if len(network_logs) > 100:
+    network_logs = '<truncated>...\n' + '\n'.join(network_log_lines[-100:])
+  else:
+    network_logs = '\n'.join(network_log_lines)
   SendMail('Modem Power-Cycled',
-           'The Modem was power cycled at {}.'.format(
-               str(datetime.datetime.now())))
+           'The Modem was power cycled at {}.\n\nNetwork logs:\n{}'.format(
+               str(datetime.datetime.now()), network_logs))
 
 
 def ControlLoop():
