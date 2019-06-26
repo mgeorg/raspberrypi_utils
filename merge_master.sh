@@ -12,7 +12,7 @@ scarfie-feeder)
   BRANCH=feeder
   ;;
 vigil)
-  REP_DIR=~/raspberrypi/wakeup
+  REP_DIR=~/wakeup
   BRANCH=laptop
   ;;
 mgeorg-glaptop)
