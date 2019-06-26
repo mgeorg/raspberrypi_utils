@@ -2,14 +2,14 @@
 
 set -eu
 
-cd ~/raspberrypi/wakeup/
+cd ~/wakeup/
 
 if [[ "$(git diff --name-only)" != "" ]]; then
   echo "There are unstaged files, aborting."
   exit 1
 fi
 
-bash ~/raspberrypi/wakeup/merge_master.sh
+bash ~/wakeup/merge_master.sh
 
 git checkout master
 
@@ -24,7 +24,7 @@ git push pi master
 
 ssh feeder bash ~/wakeup/merge_branch.sh
 ssh pi bash ~/wakeup/merge_branch.sh
-bash ~/raspberrypi/wakeup/merge_branch.sh
+bash ~/wakeup/merge_branch.sh
 
 git checkout laptop
 
