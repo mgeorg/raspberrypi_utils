@@ -15,6 +15,10 @@ vigil)
   REP_DIR=~/raspberrypi/wakeup
   BRANCH=laptop
   ;;
+mgeorg-glaptop)
+  REP_DIR=~/wakeup
+  BRANCH=laptop
+  ;;
 *)
   echo "I don't know where I'm running"
   exit 1
