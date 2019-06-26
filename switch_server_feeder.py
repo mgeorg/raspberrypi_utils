@@ -109,14 +109,17 @@ Message creation time: {}
   logging.info('Finished sending/enqueuing, returncode = %d.' % p.returncode)
 
 
-def Feed(num_sec):
+def Feed(num_sec, extra=None):
   logging.info('Feeding.')
   print('Feeding')
   # Feeder relay turns on when control is grounded.
   GPIO.output(feeder_pin, GPIO.LOW)
   time.sleep(num_sec)
   GPIO.output(feeder_pin, GPIO.HIGH)
-  SendMail('Feeding', 'Feeding succeeded.')
+  if extra:
+    SendMail('Feeding Extra', 'Extra feeding succeeded.')
+  else:
+    SendMail('Feeding', 'Feeding succeeded.')
 
 
 def NetworkIsDown():
@@ -194,12 +197,13 @@ def ControlLoop():
       if m:
         print('"' + m.group(1) + '"')
         continue
-      m = re.match(r'feed(?:\s+(\d+))?$', data)
+      m = re.match(r'feed(?:\s+(extra))(?:\s+(\d+))?$', data)
       if m:
         num_sec = 5  # Default feeder on time.
-        if m.group(1):
-          num_sec = int(m.group(1).strip())
-        Feed(num_sec)
+        extra = not m.group(1)
+        if m.group(2):
+          num_sec = int(m.group(2).strip())
+        Feed(num_sec, extra)
         continue
       m = re.match(r'cycle(?:\s+(\d+))?$', data)
       if m:
