@@ -9,6 +9,7 @@ if [[ "$(git diff --name-only)" != "" ]]; then
   exit 1
 fi
 
+echo  "Merging master on local"
 bash ~/wakeup/merge_master.sh
 
 git checkout master
