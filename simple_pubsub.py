@@ -38,6 +38,8 @@ class SimplePubSub:
       f.write(json.dumps((time_str, origin, message)) + '\n')
 
   def Poll(self):
+    if not os.path.isfile(self.location):
+      return None
     with open(self.location, 'r') as f:
       current_count = 0
       for line in f:

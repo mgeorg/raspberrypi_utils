@@ -105,8 +105,6 @@ class WakeupTimer(object):
       self.day = ParseDay(date_string)
     self.sunrise  = GetSunriseTime(self.day).replace(tzinfo=None)
 
-    print offset_string
-    print from_anchor
     if isinstance(offset_string, datetime.timedelta):
       time_offset = offset_string
     elif isinstance(offset_string, datetime.time):
@@ -155,8 +153,12 @@ class WakeupTimer(object):
         hour_plural = ''
         if delay_hours > 1:
           hour_plural = 's'
-        delay_string = '.  Delayed by {} hour{} and {} minutes.'.format(
-            delay_hours, hour_plural, delay_minutes)
+        if delay_minutes == 0:
+          delay_string = '.  Delayed by {} hour{}.'.format(
+              delay_hours, hour_plural)
+        else:
+          delay_string = '.  Delayed by {} hour{} and {} minutes.'.format(
+              delay_hours, hour_plural, delay_minutes)
       else:
         delay_string = '.  Delayed by {} minutes.'.format(
             delay_minutes)
@@ -181,7 +183,7 @@ class WakeupTimer(object):
 
   def WakeupTime(self):
     if self.delay and self.delay > 0:
-      print('Delaying wakeup_time by {} minutes'.format(self.delay))
+      # print('Delaying wakeup_time by {} minutes'.format(self.delay))
       wakeup_time = self.wakeup_time + datetime.timedelta(minutes=self.delay)
     else:
       wakeup_time = self.wakeup_time
@@ -189,7 +191,7 @@ class WakeupTimer(object):
 
   def WakeupDate(self):
     if self.delay and self.delay > 0:
-      print('Delaying wakeup_time by {} minutes'.format(self.delay))
+      # print('Delaying wakeup_time by {} minutes'.format(self.delay))
       wakeup_time = self.wakeup_time + datetime.timedelta(minutes=self.delay)
     else:
       wakeup_time = self.wakeup_time
@@ -198,7 +200,7 @@ class WakeupTimer(object):
 
   def WaitUntilWakeup(self, max_delta=None):
     if self.delay and self.delay > 0:
-      print('Delaying wakeup_time by {} minutes'.format(self.delay))
+      # print('Delaying wakeup_time by {} minutes'.format(self.delay))
       wakeup_time = self.wakeup_time + datetime.timedelta(minutes=self.delay)
     else:
       wakeup_time = self.wakeup_time

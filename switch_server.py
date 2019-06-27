@@ -19,7 +19,10 @@ switch_on = False
 button1_press_time = datetime.datetime.now()
 button2_press_time = button1_press_time
 off_timer = None
-off_timer_time = None
+off_timer_time = 0
+announce_timer = None
+ignore_delay_until = datetime.datetime.now()
+pubsub_handle = simple_pubsub.SimplePubSub('/home/mgeorg/button_press.pubsub')
 
 
 def CheckPid(pid):
@@ -37,8 +40,9 @@ def Button1Pressed(channel):
   last_press = button1_press_time
   now = datetime.datetime.now()
   button1_press_time = now
-  if last_press + datetime.timedelta(milliseconds=200) > now:
+  if last_press + datetime.timedelta(milliseconds=100) > now:
     print('button1: bounced button press ignored.')
+    button1_press_time = last_press
     return
   time.sleep(0.01)  # Wait 10ms for transients to disappear.
   if (GPIO.input(button1_pin) != GPIO.LOW):
@@ -56,12 +60,14 @@ def Button1Pressed(channel):
 
 def Button2Pressed(channel):
   global button2_press_time
-  global notify_button2_pressed
+  global ignore_delay_until
+  global announce_timer
   last_press = button2_press_time
   now = datetime.datetime.now()
   button2_press_time = now
-  if last_press + datetime.timedelta(milliseconds=300) > now:
+  if last_press + datetime.timedelta(milliseconds=100) > now:
     print('button2: bounced button press ignored.')
+    button2_press_time = last_press
     return
   time.sleep(0.01)  # Wait 10ms for transients to disappear.
   if (GPIO.input(button2_pin) != GPIO.LOW):
@@ -70,19 +76,13 @@ def Button2Pressed(channel):
     button2_press_time = last_press
     return
   print('button2: Pressed')
-  if notify_button2_pressed:
-    print('Notifying service rather than normal behavior.')
-    notify_button2_pressed()
-    notify_button2_pressed = None
+  pubsub_handle.Publish('switch_server', 'button2 pressed')
+
+  if ignore_delay_until > now:
     return
-  time.sleep(1)  # Wait for long press.
-  if (GPIO.input(button2_pin) != GPIO.LOW):
-    print('button2: short press.')
-    festival_thread = threading.Thread(target=FestivalNextWakeupTime)
-    festival_thread.start()
-    button2_press_time = datetime.datetime.now()
-    return
-  print('button2: long press.')
+
+  CancelAnnounceTimer()
+
   morn = morning.Morning()
   timer = morn.GetNextTimer()
   wakeup_date_key = timer.WakeupDate()
@@ -105,26 +105,24 @@ def Button2Pressed(channel):
       f.write('{} {}\n'.format(wakeup_date_key, delay+15))
   except:
     pass
-  delay_timedelta = datetime.timedelta(minutes=delay+15)
-  delay_hours = (delay+15) / 60
-  delay_minutes = (delay+15) % 60
-  if delay_hours > 0:
-    hour_plural = ''
-    if delay_hours > 1:
-      hour_plural = 's'
-    delay_string = 'Delay increased to {} hour{} and {} minutes.'.format(
-        delay_hours, hour_plural, delay_minutes)
-  else:
-    delay_string = 'Delay increased to {} minutes.'.format(
-        delay_minutes)
-  print(delay_string)
+  announce_timer = threading.Timer(2, AnnounceNextWakeupTime)
+  announce_timer.start()
 
-  festival_thread = threading.Thread(target=RunFestival, args=(delay_string,))
-  festival_thread.start()
-  # Set button press time as the time at which we're returning from
-  # the function.  There may be invocations of the function triggered
-  # by transients that are waiting to execute.
   button2_press_time = datetime.datetime.now()
+
+
+def CancelAnnounceTimer():
+  global announce_timer
+  if announce_timer is not None:
+    print('Cancelling Announce timer')
+    announce_timer.cancel()
+    announce_timer.join()
+    announce_timer = None
+
+
+def AnnounceNextWakeupTime():
+  festival_thread = threading.Thread(target=FestivalNextWakeupTime)
+  festival_thread.start()
 
 
 def FestivalNextWakeupTime():
@@ -197,6 +195,13 @@ def IncreaseOnTime(num_sec):
   festival_thread.start()
 
 
+def IgnoreDelay(num_sec):
+  global ignore_delay_until
+  print('Ignoring delay button presses for {} seconds.'.format(num_sec))
+  ignore_delay_until = (
+      datetime.datetime.now() + datetime.timedelta(seconds=num_sec))
+
+
 def ControlLoop():
   global off_timer
   fifo_path = '/tmp/switch_command.fifo'
@@ -224,6 +229,13 @@ def ControlLoop():
       m = re.match(r'off(?:\s.*)?$', data)
       if m:
         SwitchOffAndCancelTimer()
+        continue
+      m = re.match(r'ignore_delay(?:\s+(\d+))?$', data)
+      if m:
+        num_sec = 60*1  # 1 minute.
+        if m.group(1):
+          num_sec = int(m.group(1).strip())
+        IgnoreDelay(num_sec)
         continue
       print('Unable to understand "%s"' % (data))
 

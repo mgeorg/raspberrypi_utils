@@ -158,7 +158,7 @@ class Morning(object):
     timer_time = current_time
     timer = self.GetTimer(current_time)
     if not timer or timer.WakeupTime() < current_time:
-      print('It is after wakeup today.')
+      # print('It is after wakeup today.')
       timer_time = current_time + datetime.timedelta(days=1)
       timer = self.GetTimer(timer_time)
     while not timer and timer_time < current_time + datetime.timedelta(days=30):
