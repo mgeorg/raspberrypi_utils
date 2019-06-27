@@ -21,10 +21,12 @@ button2_press_time = button1_press_time
 button3_press_time = button1_press_time
 off_timer = None
 off_timer_time = 0
-announce_timer = None
+schedule_delay_timer = None
+off_time_increase_timer = None
 ignore_delay_until = datetime.datetime.now()
 pubsub_handle = simple_pubsub.SimplePubSub('/home/mgeorg/button_press.pubsub')
 button_bounce_time = 10
+scheduled_delay_increase = 0
 
 
 def CheckPid(pid):
@@ -83,12 +85,7 @@ def Button2Pressed(channel):
   if ignore_delay_until > now:
     return
 
-  CancelAnnounceTimer()
-
-  UpdateDelay(-15)
-
-  announce_timer = threading.Timer(1, AnnounceNextWakeupTime)
-  announce_timer.start()
+  ScheduleUpdateDelay(-15)
 
 
 def Button3Pressed(channel):
@@ -114,17 +111,21 @@ def Button3Pressed(channel):
   if ignore_delay_until > now:
     return
 
-  CancelAnnounceTimer()
-
-  UpdateDelay(15)
-
-  announce_timer = threading.Timer(1, AnnounceNextWakeupTime)
-  announce_timer.start()
-
-  button3_press_time = datetime.datetime.now()
+  ScheduleUpdateDelay(15)
 
 
-def UpdateDelay(increase):
+def ScheduleUpdateDelay(increase):
+  global scheduled_delay_increase
+  global schedule_delay_timer
+  scheduled_delay_increase += increase
+
+  CancelDelayIncreaseTimer()
+  schedule_delay_timer = threading.Timer(1, UpdateDelay)
+  schedule_delay_timer.start()
+
+
+def UpdateDelay():
+  global scheduled_delay_increase
   morn = morning.Morning()
   timer = morn.GetNextTimer()
   wakeup_date_key = timer.WakeupDate()
@@ -144,22 +145,41 @@ def UpdateDelay(increase):
     delay = 0
   try:
     with open('/home/mgeorg/wakeup/data/delay.txt', 'w') as f:
-      f.write('{} {}\n'.format(wakeup_date_key, delay+increase))
+      f.write('{} {}\n'.format(wakeup_date_key,
+                               delay+scheduled_delay_increase))
   except:
     pass
+  scheduled_delay_increase = 0
+  AnnounceNextWakeupTime()
 
 
-def CancelAnnounceTimer():
-  global announce_timer
-  if announce_timer is not None:
-    print('Cancelling Announce timer')
-    announce_timer.cancel()
-    announce_timer.join()
-    announce_timer = None
+def CancelIncreaseTimer():
+  global off_time_increase_timer
+  if off_time_increase_timer is not None:
+    print('Cancelling Increase timer')
+    off_time_increase_timer.cancel()
+    off_time_increase_timer.join()
+    off_time_increase_timer = None
+
+
+def CancelDelayIncreaseTimer():
+  global schedule_delay_timer
+  if schedule_delay_timer is not None:
+    print('Cancelling Delay Increase timer')
+    schedule_delay_timer.cancel()
+    schedule_delay_timer.join()
+    schedule_delay_timer = None
 
 
 def AnnounceNextWakeupTime():
   festival_thread = threading.Thread(target=FestivalNextWakeupTime)
+  festival_thread.start()
+
+
+def AnnounceIncrease():
+  global off_timer_time
+  festival_thread = threading.Thread(
+      target=RunFestival, args=('{} minutes.'.format(off_timer_time/60),))
   festival_thread.start()
 
 
@@ -222,15 +242,16 @@ def SwitchOn(num_sec):
 def IncreaseOnTime(num_sec):
   global switch_on
   global off_timer_time
+  global off_time_increase_timer
   print('Increasing time on')
   if not switch_on:
     print('Switch is not on')
     return
-  new_time = off_timer_time + num_sec
-  SwitchOn(new_time)
-  festival_thread = threading.Thread(
-      target=RunFestival, args=('{} minutes.'.format(new_time/60),))
-  festival_thread.start()
+  SwitchOn(off_timer_time + num_sec)
+
+  CancelIncreaseTimer()
+  off_time_increase_timer = threading.Timer(1, AnnounceIncrease)
+  off_time_increase_timer.start()
 
 
 def IgnoreDelay(num_sec):

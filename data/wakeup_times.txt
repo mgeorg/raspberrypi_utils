@@ -1,4 +1,4 @@
-Anchor 2019-04-25 2:00 10:00 2019-05-25 1:00 9:00
+Anchor 2019-06-26 2:00 8:30 2019-06-26 2:00 8:30
 Monday    anchor+0:00 weekday.sh
 Tuesday   anchor+0:00 weekday.sh
 Wednesday anchor+0:00 weekday.sh
