@@ -3,8 +3,6 @@
 import datetime
 import os
 import re
-import rpyc
-import rpyc.utils.server
 import signal
 import subprocess
 import sys
@@ -14,57 +12,14 @@ import time
 import RPi.GPIO as GPIO
 
 # From current directory
+import simple_pubsub
 import morning
-
-global notify_button2_pressed
-notify_button2_pressed = None
-global server_thread
-server_thread = None
-global server
-server = None
-
-class WaitForButtonService(rpyc.Service):
-  def on_connect(self, connection=None):
-    pass
-
-  def on_disconnect(self, connection=None):
-    global notify_button2_pressed
-    if notify_button2_pressed == self.notify:
-      notify_button2_pressed = None
-
-  def exposed_wait_for_button(self, timeout_ms=None):
-    global notify_button2_pressed
-    print('Waiting for button, timeout_ms = {}'.format(timeout_ms))
-    timeout_time = None
-    if timeout_ms:
-      timeout_time = (datetime.datetime.now() +
-                      datetime.timedelta(milliseconds=timeout_ms))
-    self.notified = False
-    # notify_button2_pressed = callback
-    notify_button2_pressed = self.notify
-    while (not self.notified and
-           (timeout_time is None or
-            datetime.datetime.now() < timeout_time)):
-      time.sleep(.01)
-    notify_button2_pressed = None
-    print('Done waiting for button, button press = {}'.format(self.notified))
-    return self.notified
-
-  def notify(self):
-    self.notified = True
-
-
-def RunServer():
-  global server
-  server = rpyc.utils.server.ThreadedServer(
-    WaitForButtonService, port=18861)
-  server.start()
-
 
 switch_on = False
 button1_press_time = datetime.datetime.now()
 button2_press_time = button1_press_time
 off_timer = None
+off_timer_time = None
 
 
 def CheckPid(pid):
@@ -82,7 +37,7 @@ def Button1Pressed(channel):
   last_press = button1_press_time
   now = datetime.datetime.now()
   button1_press_time = now
-  if last_press + datetime.timedelta(milliseconds=300) > now:
+  if last_press + datetime.timedelta(milliseconds=200) > now:
     print('button1: bounced button press ignored.')
     return
   time.sleep(0.01)  # Wait 10ms for transients to disappear.
@@ -92,27 +47,11 @@ def Button1Pressed(channel):
     button1_press_time = last_press
     return
   print('button1: Pressed')
+  if switch_on and last_press + datetime.timedelta(seconds=1) > now:
+    return IncreaseOnTime(15*60)
   if switch_on:
-    SwitchOffAndCancelTimer()
-  else:
-    SwitchOn(15*60)  # 15 min
-    time.sleep(1)  # Wait for long press.
-    if (GPIO.input(button1_pin) != GPIO.LOW):
-      print('button1: short press.')
-      button1_press_time = datetime.datetime.now()
-      return
-    print('button1: long press.')
-    SwitchOn(45*60)  # 45 min
-    festival_thread = threading.Thread(
-        target=RunFestival, args=('45 minutes.',))
-    festival_thread.start()
-    # Wait 5 seconds so that holding down the button can't
-    # trigger further actions.
-    time.sleep(5)
-  # Set button press time as the time at which we're returning from
-  # the function.  There may be invocations of the function triggered
-  # by transients that are waiting to execute.
-  button1_press_time = datetime.datetime.now()
+    return SwitchOffAndCancelTimer()
+  return SwitchOn(15*60)  # 15 min
 
 
 def Button2Pressed(channel):
@@ -204,43 +143,6 @@ def RunFestival(message):
   print('festival returned %d' % p.returncode)
 
 
-try:
-  with open('/tmp/switch_server_pid.txt', 'r') as f:
-    pid = ''
-    for line in f.read().splitlines():
-      if line.strip():
-        pid = line.strip()
-        break
-    if pid and CheckPid(int(pid)):
-      print('switch_server is already running, exiting.')
-      sys.exit(0)
-except IOError:
-  print('Can not read pid file.  Continuing...')
-
-with open('/tmp/switch_server_pid.txt', 'w') as f:
-  f.write(str(os.getpid()))
-  f.write('\n')
-
-GPIO.setmode(GPIO.BCM)
-switch_pin = 18 # Broadcom pin 18 (PI pin 12)
-# Connect switch_pin and ground (pin 14) to relay switch.
-button1_pin = 23 # Broadcom pin 23 (PI pin 16)
-button2_pin = 24 # Broadcom pin 24 (PI pin 18)
-# Connect button pins to 3.3v power (pin 1 or 17) each with a 10kOhm Resister.
-# Connect button pins to ground each with a 100nF capacitor.
-
-GPIO.setup(switch_pin, GPIO.OUT)
-# GPIO.setup(button1_pin, GPIO.IN, pull_up_down=GPIO.PUD_UP)
-# GPIO.setup(button2_pin, GPIO.IN, pull_up_down=GPIO.PUD_UP)
-GPIO.setup(button1_pin, GPIO.IN, pull_up_down=GPIO.PUD_OFF)
-GPIO.setup(button2_pin, GPIO.IN, pull_up_down=GPIO.PUD_OFF)
-
-GPIO.add_event_detect(button1_pin, GPIO.FALLING, Button1Pressed)
-GPIO.add_event_detect(button2_pin, GPIO.FALLING, Button2Pressed)
-
-GPIO.output(switch_pin, GPIO.LOW)
-
-
 def CancelTimer():
   global off_timer
   if off_timer is not None:
@@ -251,15 +153,9 @@ def CancelTimer():
 
 
 def Quit():
-  global server
-  global server_thread
   CancelTimer()
   print('Cleaning up GPIO')
   GPIO.cleanup()
-  print('Cleaning up server')
-  if server and server_thread:
-    server.close()
-    server_thread.join()
 
 
 def SwitchOffAndCancelTimer():
@@ -277,12 +173,28 @@ def SwitchOff():
 def SwitchOn(num_sec):
   global switch_on
   global off_timer
+  global off_timer_time
   CancelTimer()
   print('Turning on')
   switch_on = True
   GPIO.output(switch_pin, GPIO.HIGH)
-  off_timer = threading.Timer(num_sec, SwitchOff)
+  off_timer_time = num_sec
+  off_timer = threading.Timer(off_timer_time, SwitchOff)
   off_timer.start()
+
+
+def IncreaseOnTime(num_sec):
+  global switch_on
+  global off_timer_time
+  print('Increasing time on')
+  if not switch_on:
+    print('Switch is not on')
+    return
+  new_time = off_timer_time + num_sec
+  SwitchOn(new_time)
+  festival_thread = threading.Thread(
+      target=RunFestival, args=('{} minutes.'.format(new_time/60),))
+  festival_thread.start()
 
 
 def ControlLoop():
@@ -319,10 +231,42 @@ def ControlLoop():
 def SigHandler(signum, frame):
   raise KeyboardInterrupt('signal %d received' % signum)
 
-# control_loop_thread = threading.Thread(target=ControlLoop)
-# control_loop_thread.daemon = True
-# control_loop_thread.start()
-# control_loop_thread.join()
+
+try:
+  with open('/tmp/switch_server_pid.txt', 'r') as f:
+    pid = ''
+    for line in f.read().splitlines():
+      if line.strip():
+        pid = line.strip()
+        break
+    if pid and CheckPid(int(pid)):
+      print('switch_server is already running, exiting.')
+      sys.exit(0)
+except IOError:
+  print('Can not read pid file.  Continuing...')
+
+with open('/tmp/switch_server_pid.txt', 'w') as f:
+  f.write(str(os.getpid()))
+  f.write('\n')
+
+GPIO.setmode(GPIO.BCM)
+switch_pin = 18 # Broadcom pin 18 (PI pin 12)
+# Connect switch_pin and ground (pin 14) to relay switch.
+button1_pin = 23 # Broadcom pin 23 (PI pin 16)
+button2_pin = 24 # Broadcom pin 24 (PI pin 18)
+# Connect button pins to 3.3v power (pin 1 or 17) each with a 10kOhm Resister.
+# Connect button pins to ground each with a 100nF capacitor.
+
+GPIO.setup(switch_pin, GPIO.OUT)
+# PUD_OFF leaves the value floating.
+# PUD_UP leaves it connected to high voltage with a resister.
+GPIO.setup(button1_pin, GPIO.IN, pull_up_down=GPIO.PUD_OFF)
+GPIO.setup(button2_pin, GPIO.IN, pull_up_down=GPIO.PUD_OFF)
+
+GPIO.add_event_detect(button1_pin, GPIO.FALLING, Button1Pressed)
+GPIO.add_event_detect(button2_pin, GPIO.FALLING, Button2Pressed)
+
+GPIO.output(switch_pin, GPIO.LOW)
 
 signal.signal(signal.SIGABRT, SigHandler)
 signal.signal(signal.SIGALRM, SigHandler)
@@ -330,8 +274,6 @@ signal.signal(signal.SIGHUP, SigHandler)
 signal.signal(signal.SIGQUIT, SigHandler)
 signal.signal(signal.SIGTERM, SigHandler)
 try:
-  server_thread = threading.Thread(target=RunServer)
-  server_thread.start()
   ControlLoop()
 finally:
   Quit()
