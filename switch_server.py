@@ -25,7 +25,7 @@ schedule_delay_timer = None
 off_time_increase_timer = None
 ignore_delay_until = datetime.datetime.now()
 pubsub_handle = simple_pubsub.SimplePubSub('/home/mgeorg/button_press.pubsub')
-button_bounce_time = 10
+button_bounce_time = 100
 scheduled_delay_increase = 0
 
 

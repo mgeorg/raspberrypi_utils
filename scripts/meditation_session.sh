@@ -27,9 +27,13 @@ sleep $(expr 6 '+' "$RANDOM" '%' '3')"."$($RANDOM '%' '10')
 aplay $BELL &
 ) &
 
-sleep $(expr '60' '*' '(' "${SESSION_LENGTH}" '-' "${WARNING_TIME}" ')')
-echo "Don't worry, I didn't forget about you, ${WARNING_TIME} more minutes" | festival --tts
-sleep $(expr '60' '*' "${WARNING_TIME}")
+if [[ ${WARNING_TIME} == '0' ]] ; then
+  sleep $(expr '60' '*' '(' "${SESSION_LENGTH}" ')')
+else
+  sleep $(expr '60' '*' '(' "${SESSION_LENGTH}" '-' "${WARNING_TIME}" ')')
+  echo "Don't worry, I didn't forget about you, ${WARNING_TIME} more minutes" | festival --tts
+  sleep $(expr '60' '*' "${WARNING_TIME}")
+fi
 
 aplay $BELL &
 sleep $(expr 2 '+' "$RANDOM" '%' '2')"."$($RANDOM '%' '10')

@@ -1,10 +1,11 @@
 #!/usr/bin/python
 import datetime
-import rpyc
 import subprocess
 import sys
 import threading
 import time
+
+import simple_pubsub
 
 # import ordinal
 global nag_alarm_process
@@ -15,28 +16,41 @@ button_pressed = False
 def SecondPart():
   global nag_alarm_process
   global button_pressed
+
+  pubsub = simple_pubsub.SimplePubSub('/home/mgeorg/button_press.pubsub')
   # Wait for button press.
   print('Waiting for button press.')
-  service_connection = rpyc.connect("localhost", 18861)
-  button_pressed = service_connection.root.wait_for_button()
+  button_pressed = False
+  event = None
+  while event is None or (event[2] != 'button2' and event[2] != 'button3'):
+    event = pubsub.Poll()
+    if event is None:
+      time.sleep(0.1)
+
+  button_pressed = True
+
   nag_alarm_process.terminate()
-  assert button_pressed
   # Turn on light.
   with open('/tmp/switch_command.fifo', 'w') as f:
-    f.write('on 3000')
+    f.write('on 3000')  # 50 minutes
 
-  # Wait a few seconds for a second button press.
-  print('Waiting for secondary button press.')
-  button_pressed = service_connection.root.wait_for_button(timeout_ms=3000)
-  if button_pressed:
-    with open('/tmp/switch_command.fifo', 'w') as f:
-      f.write('off')
-    return
+  # If the button is pressed again within 3 seconds, then we turn
+  # off the light and go back to bed.
+  deadline = datetime.datetime.now() + datetime.timedelta(seconds=3)
+  event = None
+  while event is None or (event[2] != 'button2' and event[2] != 'button3'):
+    event = pubsub.Poll()
+    if event is None:
+      time.sleep(0.1)
+    if datetime.datetime.now() > deadline:
+      with open('/tmp/switch_command.fifo', 'w') as f:
+        f.write('off')
+      return
 
   # Start meditation session
   print('Starting meditation session.')
   meditation_process = subprocess.Popen(
-      ['/home/mgeorg/wakeup/scripts/meditation_session.sh', '35', '10'])
+      ['/home/mgeorg/wakeup/scripts/meditation_session.sh', '10', '0'])
   meditation_process.communicate()
   print('meditation_process.sh returned %d' % meditation_process.returncode)
 
