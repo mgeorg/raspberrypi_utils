@@ -145,23 +145,40 @@ class WakeupTimer(object):
     print('script:               "%s"' % str(self.script))
 
   def Message(self):
-    if self.delay and self.delay > 0:
+    if self.delay:
       wakeup_time = self.wakeup_time + datetime.timedelta(minutes=self.delay)
-      delay_hours = self.delay / 60
-      delay_minutes = self.delay % 60
-      if delay_hours > 0:
-        hour_plural = ''
-        if delay_hours > 1:
-          hour_plural = 's'
-        if delay_minutes == 0:
-          delay_string = '.  Delayed by {} hour{}.'.format(
-              delay_hours, hour_plural)
+      if self.delay > 0:
+        delay_hours = self.delay / 60
+        delay_minutes = self.delay % 60
+        if delay_hours > 0:
+          hour_plural = ''
+          if delay_hours > 1:
+            hour_plural = 's'
+          if delay_minutes == 0:
+            delay_string = '.  Delayed by {} hour{}.'.format(
+                delay_hours, hour_plural)
+          else:
+            delay_string = '.  Delayed by {} hour{} and {} minutes.'.format(
+                delay_hours, hour_plural, delay_minutes)
         else:
-          delay_string = '.  Delayed by {} hour{} and {} minutes.'.format(
-              delay_hours, hour_plural, delay_minutes)
+          delay_string = '.  Delayed by {} minutes.'.format(
+              delay_minutes)
       else:
-        delay_string = '.  Delayed by {} minutes.'.format(
-            delay_minutes)
+        delay_hours = -self.delay / 60
+        delay_minutes = -self.delay % 60
+        if delay_hours > 0:
+          hour_plural = ''
+          if delay_hours > 1:
+            hour_plural = 's'
+          if delay_minutes == 0:
+            delay_string = '.  Accelerated by {} hour{}.'.format(
+                delay_hours, hour_plural)
+          else:
+            delay_string = '.  Accelerated by {} hour{} and {} minutes.'.format(
+                delay_hours, hour_plural, delay_minutes)
+        else:
+          delay_string = '.  Accelerated by {} minutes.'.format(
+              delay_minutes)
     else:
       wakeup_time = self.wakeup_time
       delay_string = ''
@@ -182,16 +199,14 @@ class WakeupTimer(object):
         minute=wakeup_time.minute, delay_string=delay_string)
 
   def WakeupTime(self):
-    if self.delay and self.delay > 0:
-      # print('Delaying wakeup_time by {} minutes'.format(self.delay))
+    if self.delay:
       wakeup_time = self.wakeup_time + datetime.timedelta(minutes=self.delay)
     else:
       wakeup_time = self.wakeup_time
     return wakeup_time
 
   def WakeupDate(self):
-    if self.delay and self.delay > 0:
-      # print('Delaying wakeup_time by {} minutes'.format(self.delay))
+    if self.delay:
       wakeup_time = self.wakeup_time + datetime.timedelta(minutes=self.delay)
     else:
       wakeup_time = self.wakeup_time
@@ -199,8 +214,7 @@ class WakeupTimer(object):
         wakeup_time.year, wakeup_time.month, wakeup_time.day)
 
   def WaitUntilWakeup(self, max_delta=None):
-    if self.delay and self.delay > 0:
-      # print('Delaying wakeup_time by {} minutes'.format(self.delay))
+    if self.delay:
       wakeup_time = self.wakeup_time + datetime.timedelta(minutes=self.delay)
     else:
       wakeup_time = self.wakeup_time

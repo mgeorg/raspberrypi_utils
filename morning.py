@@ -41,7 +41,7 @@ class Morning(object):
     self.delay = 0
     try:
       with open('/home/mgeorg/wakeup/data/delay.txt', 'r') as f:
-        m = re.match(r'\s*(\d{4})-(\d{2})-(\d{2})\s+(\d+)', f.read())
+        m = re.match(r'\s*(\d{4})-(\d{2})-(\d{2})\s+(-?\d+)', f.read())
         if not m:
           raise ValueError('delay.txt did not contain right values.')
         self.delay_date = datetime.date(

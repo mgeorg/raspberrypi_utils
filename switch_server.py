@@ -18,11 +18,13 @@ import morning
 switch_on = False
 button1_press_time = datetime.datetime.now()
 button2_press_time = button1_press_time
+button3_press_time = button1_press_time
 off_timer = None
 off_timer_time = 0
 announce_timer = None
 ignore_delay_until = datetime.datetime.now()
 pubsub_handle = simple_pubsub.SimplePubSub('/home/mgeorg/button_press.pubsub')
+button_bounce_time = 10
 
 
 def CheckPid(pid):
@@ -40,7 +42,7 @@ def Button1Pressed(channel):
   last_press = button1_press_time
   now = datetime.datetime.now()
   button1_press_time = now
-  if last_press + datetime.timedelta(milliseconds=100) > now:
+  if last_press + datetime.timedelta(milliseconds=button_bounce_time) > now:
     print('button1: bounced button press ignored.')
     button1_press_time = last_press
     return
@@ -65,7 +67,7 @@ def Button2Pressed(channel):
   last_press = button2_press_time
   now = datetime.datetime.now()
   button2_press_time = now
-  if last_press + datetime.timedelta(milliseconds=100) > now:
+  if last_press + datetime.timedelta(milliseconds=button_bounce_time) > now:
     print('button2: bounced button press ignored.')
     button2_press_time = last_press
     return
@@ -83,6 +85,46 @@ def Button2Pressed(channel):
 
   CancelAnnounceTimer()
 
+  UpdateDelay(-15)
+
+  announce_timer = threading.Timer(1, AnnounceNextWakeupTime)
+  announce_timer.start()
+
+
+def Button3Pressed(channel):
+  global button3_press_time
+  global ignore_delay_until
+  global announce_timer
+  last_press = button3_press_time
+  now = datetime.datetime.now()
+  button3_press_time = now
+  if last_press + datetime.timedelta(milliseconds=button_bounce_time) > now:
+    print('button3: bounced button press ignored.')
+    button3_press_time = last_press
+    return
+  time.sleep(0.01)  # Wait 10ms for transients to disappear.
+  if (GPIO.input(button3_pin) != GPIO.LOW):
+    print('button3: transient detected.')
+    # Reset press time to previous press time.
+    button3_press_time = last_press
+    return
+  print('button3: Pressed')
+  pubsub_handle.Publish('switch_server', 'button3 pressed')
+
+  if ignore_delay_until > now:
+    return
+
+  CancelAnnounceTimer()
+
+  UpdateDelay(15)
+
+  announce_timer = threading.Timer(1, AnnounceNextWakeupTime)
+  announce_timer.start()
+
+  button3_press_time = datetime.datetime.now()
+
+
+def UpdateDelay(increase):
   morn = morning.Morning()
   timer = morn.GetNextTimer()
   wakeup_date_key = timer.WakeupDate()
@@ -90,7 +132,7 @@ def Button2Pressed(channel):
     delay = 0
     delay_date_key = None
     with open('/home/mgeorg/wakeup/data/delay.txt', 'r') as f:
-      m = re.match(r'\s*(\d{4}-\d{2}-\d{2})\s+(\d+)', f.read())
+      m = re.match(r'\s*(\d{4}-\d{2}-\d{2})\s+(-?\d+)', f.read())
       if not m:
         raise ValueError('delay.txt did not contain right values.')
       delay_date_key = m.group(1)
@@ -102,13 +144,9 @@ def Button2Pressed(channel):
     delay = 0
   try:
     with open('/home/mgeorg/wakeup/data/delay.txt', 'w') as f:
-      f.write('{} {}\n'.format(wakeup_date_key, delay+15))
+      f.write('{} {}\n'.format(wakeup_date_key, delay+increase))
   except:
     pass
-  announce_timer = threading.Timer(2, AnnounceNextWakeupTime)
-  announce_timer.start()
-
-  button2_press_time = datetime.datetime.now()
 
 
 def CancelAnnounceTimer():
@@ -266,17 +304,20 @@ switch_pin = 18 # Broadcom pin 18 (PI pin 12)
 # Connect switch_pin and ground (pin 14) to relay switch.
 button1_pin = 23 # Broadcom pin 23 (PI pin 16)
 button2_pin = 24 # Broadcom pin 24 (PI pin 18)
+button3_pin = 25 # Broadcom pin 25 (PI pin 22)
 # Connect button pins to 3.3v power (pin 1 or 17) each with a 10kOhm Resister.
-# Connect button pins to ground each with a 100nF capacitor.
+# Connect button pins to ground (pin 14 or 20) each with a 100nF capacitor.
 
 GPIO.setup(switch_pin, GPIO.OUT)
 # PUD_OFF leaves the value floating.
 # PUD_UP leaves it connected to high voltage with a resister.
 GPIO.setup(button1_pin, GPIO.IN, pull_up_down=GPIO.PUD_OFF)
 GPIO.setup(button2_pin, GPIO.IN, pull_up_down=GPIO.PUD_OFF)
+GPIO.setup(button3_pin, GPIO.IN, pull_up_down=GPIO.PUD_OFF)
 
 GPIO.add_event_detect(button1_pin, GPIO.FALLING, Button1Pressed)
 GPIO.add_event_detect(button2_pin, GPIO.FALLING, Button2Pressed)
+GPIO.add_event_detect(button3_pin, GPIO.FALLING, Button3Pressed)
 
 GPIO.output(switch_pin, GPIO.LOW)
 
