@@ -17,13 +17,17 @@ import morning
 
 switch_on = False
 button1_press_time = datetime.datetime.now()
-button2_press_time = button1_press_time
-button3_press_time = button1_press_time
+button2_press_time = datetime.datetime.now()
+button3_press_time = datetime.datetime.now()
+button4_press_time = datetime.datetime.now()
 off_timer = None
 off_timer_time = 0
 schedule_delay_timer = None
 off_time_increase_timer = None
+meditation_timer = None
 ignore_delay_until = datetime.datetime.now()
+delay_buttons_set_meditation_time_until = datetime.datetime.now()
+meditation_time = 0
 pubsub_handle = simple_pubsub.SimplePubSub('/home/mgeorg/button_press.pubsub')
 button_bounce_time = 100
 scheduled_delay_increase = 0
@@ -65,7 +69,8 @@ def Button1Pressed(channel):
 def Button2Pressed(channel):
   global button2_press_time
   global ignore_delay_until
-  global announce_timer
+  global delay_buttons_set_meditation_time_until
+  global meditation_time
   last_press = button2_press_time
   now = datetime.datetime.now()
   button2_press_time = now
@@ -82,6 +87,19 @@ def Button2Pressed(channel):
   print('button2: Pressed')
   pubsub_handle.Publish('switch_server', 'button2 pressed')
 
+  if delay_buttons_set_meditation_time_until > now:
+    meditation_time -= 5*60
+    if meditation_time > 0:
+      festival_thread = threading.Thread(
+          target=RunFestival, args=('{} minutes.'.format(meditation_time/60),))
+      festival_thread.start()
+    else:
+      meditation_time = 0
+      festival_thread = threading.Thread(
+          target=RunFestival, args=('no meditation set.',))
+      festival_thread.start()
+    return
+
   if ignore_delay_until > now:
     return
 
@@ -91,7 +109,8 @@ def Button2Pressed(channel):
 def Button3Pressed(channel):
   global button3_press_time
   global ignore_delay_until
-  global announce_timer
+  global delay_buttons_set_meditation_time_until
+  global meditation_time
   last_press = button3_press_time
   now = datetime.datetime.now()
   button3_press_time = now
@@ -108,10 +127,64 @@ def Button3Pressed(channel):
   print('button3: Pressed')
   pubsub_handle.Publish('switch_server', 'button3 pressed')
 
+  if delay_buttons_set_meditation_time_until > now:
+    meditation_time += 5*60
+    festival_thread = threading.Thread(
+        target=RunFestival, args=('{} minutes.'.format(meditation_time/60),))
+    festival_thread.start()
+    return
+
   if ignore_delay_until > now:
     return
 
   ScheduleUpdateDelay(15)
+
+
+def Button4Pressed(channel):
+  global button4_press_time
+  last_press = button4_press_time
+  now = datetime.datetime.now()
+  button4_press_time = now
+  if last_press + datetime.timedelta(milliseconds=button_bounce_time) > now:
+    print('button4: bounced button press ignored.')
+    button4_press_time = last_press
+    return
+  time.sleep(0.01)  # Wait 10ms for transients to disappear.
+  if (GPIO.input(button4_pin) != GPIO.LOW):
+    print('button4: transient detected.')
+    # Reset press time to previous press time.
+    button4_press_time = last_press
+    return
+  print('button4: Pressed')
+
+  DelayButtonsSetMeditationTime(60)
+  meditation_timer = threading.Timer(60, StartMeditation)
+  meditation_timer.start()
+
+
+def DelayButtonsSetMeditationTime(num_sec):
+  global delay_buttons_set_meditation_time_until
+  print('Delay buttons will set meditation time for {} seconds.'.format(
+      num_sec))
+  delay_buttons_set_meditation_time_until = (
+      datetime.datetime.now() + datetime.timedelta(seconds=num_sec))
+
+
+def StartMeditation():
+  global meditation_time
+  if meditation_time <= 0:
+    return
+  meditation_time_minutes = meditation_time/60
+  warn_time = 0
+  if meditation_time_minutes >= 20:
+    warn_time = 5
+  if meditation_time_minutes >= 25:
+    warn_time = 10
+  meditation_process = subprocess.Popen(
+        ['/home/mgeorg/wakeup/scripts/meditation_session.sh',
+         str(meditation_time_minutes), str(warn_time)])
+  meditation_process.communicate()
+  print('meditation_process.sh returned %d' % meditation_process.returncode)
 
 
 def ScheduleUpdateDelay(increase):
@@ -326,6 +399,7 @@ switch_pin = 18 # Broadcom pin 18 (PI pin 12)
 button1_pin = 23 # Broadcom pin 23 (PI pin 16)
 button2_pin = 24 # Broadcom pin 24 (PI pin 18)
 button3_pin = 25 # Broadcom pin 25 (PI pin 22)
+button4_pin = 8  # Broadcom pin  8 (PI pin 24)
 # Connect button pins to 3.3v power (pin 1 or 17) each with a 10kOhm Resister.
 # Connect button pins to ground (pin 14 or 20) each with a 100nF capacitor.
 
@@ -335,10 +409,12 @@ GPIO.setup(switch_pin, GPIO.OUT)
 GPIO.setup(button1_pin, GPIO.IN, pull_up_down=GPIO.PUD_OFF)
 GPIO.setup(button2_pin, GPIO.IN, pull_up_down=GPIO.PUD_OFF)
 GPIO.setup(button3_pin, GPIO.IN, pull_up_down=GPIO.PUD_OFF)
+GPIO.setup(button4_pin, GPIO.IN, pull_up_down=GPIO.PUD_OFF)
 
 GPIO.add_event_detect(button1_pin, GPIO.FALLING, Button1Pressed)
 GPIO.add_event_detect(button2_pin, GPIO.FALLING, Button2Pressed)
 GPIO.add_event_detect(button3_pin, GPIO.FALLING, Button3Pressed)
+GPIO.add_event_detect(button4_pin, GPIO.FALLING, Button4Pressed)
 
 GPIO.output(switch_pin, GPIO.LOW)
 
