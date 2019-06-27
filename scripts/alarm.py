@@ -17,6 +17,9 @@ def SecondPart():
   global nag_alarm_process
   global button_pressed
 
+  with open('/tmp/switch_command.fifo', 'w') as f:
+    f.write('ignore_delay 3600')  # Ignore buttons for 1 hour.
+
   pubsub = simple_pubsub.SimplePubSub('/home/mgeorg/button_press.pubsub')
   # Wait for button press.
   print('Waiting for button press.')
@@ -39,13 +42,21 @@ def SecondPart():
   deadline = datetime.datetime.now() + datetime.timedelta(seconds=3)
   event = None
   while event is None or (event[2] != 'button2' and event[2] != 'button3'):
+    if datetime.datetime.now() > deadline:
+      break
     event = pubsub.Poll()
     if event is None:
       time.sleep(0.1)
-    if datetime.datetime.now() > deadline:
-      with open('/tmp/switch_command.fifo', 'w') as f:
-        f.write('off')
-      return
+
+  # Stop ignoring button presses.
+  with open('/tmp/switch_command.fifo', 'w') as f:
+    f.write('ignore_delay 0')
+
+  if event and (event[2] == 'button2' or event[2] == 'button3'):
+    # Button was pressed, go back to bed.
+    with open('/tmp/switch_command.fifo', 'w') as f:
+      f.write('off')
+    return
 
   # Start meditation session
   print('Starting meditation session.')
