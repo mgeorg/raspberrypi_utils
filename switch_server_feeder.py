@@ -200,7 +200,7 @@ def ControlLoop():
       m = re.match(r'feed(?:\s+(extra))(?:\s+(\d+))?$', data)
       if m:
         num_sec = 5  # Default feeder on time.
-        extra = not m.group(1)
+        extra = not (not m.group(1))
         if m.group(2):
           num_sec = int(m.group(2).strip())
         Feed(num_sec, extra)
