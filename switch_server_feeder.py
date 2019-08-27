@@ -117,9 +117,11 @@ def Feed(num_sec, extra=None):
   time.sleep(num_sec)
   GPIO.output(feeder_pin, GPIO.HIGH)
   if extra:
-    SendMail('Feeding Extra', 'Extra feeding succeeded.')
+    SendMail('Feeding Extra {}sec'.format(num_sec),
+             'Extra feeding succeeded ({}sec).'.format(num_sec))
   else:
-    SendMail('Feeding', 'Feeding succeeded.')
+    SendMail('Feeding {}sec'.format(num_sec),
+             'Feeding succeeded ({}sec).'.format(num_sec))
 
 
 def NetworkIsDown():
@@ -197,10 +199,13 @@ def ControlLoop():
       if m:
         print('"' + m.group(1) + '"')
         continue
-      m = re.match(r'feed(?:\s+(extra))(?:\s+(\d+))?$', data)
+      m = re.match(r'feed\s+(extra\s+)?(\d+)?$', data)
       if m:
         num_sec = 5  # Default feeder on time.
-        extra = not (not m.group(1))
+        if m.group(1):
+          extra = True
+        else:
+          extra = False
         if m.group(2):
           num_sec = int(m.group(2).strip())
         Feed(num_sec, extra)
