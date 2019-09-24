@@ -173,7 +173,7 @@ def Modem(num_sec):
   # There will be no network at this point.
   with open(network_log_file, 'r') as f:
     network_log_lines = f.read().splitlines()
-  if len(network_logs) > 100:
+  if len(network_log_lines) > 100:
     network_logs = '<truncated>...\n' + '\n'.join(network_log_lines[-100:])
   else:
     network_logs = '\n'.join(network_log_lines)
