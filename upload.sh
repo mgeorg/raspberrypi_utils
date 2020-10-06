@@ -47,7 +47,7 @@ then
   git pull pi master
 else
   echo  "#################################"
-  echo  "### SKIPPING Feeder           ###"
+  echo  "### SKIPPING Pi               ###"
   echo  "#################################"
 fi
 
@@ -73,7 +73,7 @@ then
   echo  "#################################"
   ssh feeder bash ~/wakeup/merge_branch.sh
 fi
-if [[ "${ENABLE_FEEDER}" == "1" ]]
+if [[ "${ENABLE_PI}" == "1" ]]
   then
   echo  "#################################"
   echo  "### Merging to pi             ###"
