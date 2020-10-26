@@ -18,10 +18,10 @@ network_down_times = []
 last_network_reset_time = (
     datetime.datetime.now() - datetime.timedelta(minutes=60))
 
-# global last_feeder_start
-# global last_feeder_stop
-# last_feeder_start = None
-# last_feeder_stop = None
+global last_feeder_start
+global last_feeder_stop
+last_feeder_start = None
+last_feeder_stop = None
 
 skip_feeding_file = '/home/mgeorg/wakeup/data/skip_feeding.txt'
 
@@ -78,19 +78,18 @@ def GetNetworkLogger(name, log_file, level=logging.INFO):
   return logger
 
 
-# Removed detection of feeder going off, since it didn't actually work anyway.
-# def FeederChange(channel):
-#   global last_feeder_start
-#   global last_feeder_stop
-#   now = datetime.datetime.now()
-#   if (last_feeder_start is None or
-#       last_feeder_start < (now - datetime.timedelta(seconds=30))):
-#     print('resetting from {} to {}'.format(last_feeder_start, now))
-#     last_feeder_start = now
-#   last_feeder_stop = now
-#   print('feeder start {}, stop {}, diff {}'.format(
-#             last_feeder_start, last_feeder_stop,
-#             last_feeder_stop-last_feeder_start))
+def FeederChange(channel):
+  global last_feeder_start
+  global last_feeder_stop
+  now = datetime.datetime.now()
+  if (last_feeder_start is None or
+      last_feeder_start < (now - datetime.timedelta(seconds=30))):
+    print('resetting from {} to {}'.format(last_feeder_start, now))
+    last_feeder_start = now
+  last_feeder_stop = now
+  print('feeder start {}, stop {}, diff {}'.format(
+            last_feeder_start, last_feeder_stop,
+            last_feeder_stop-last_feeder_start))
 
 
 global network_log_file
@@ -108,9 +107,9 @@ feeder_pin = 27  # Broadcom pin 27 (PI pin 13)
 # work but flake out randomly over time.
 GPIO.setup(feeder_pin, GPIO.OUT)
 
-# feeder_activated_pin = 17 # Broadcom pin 17 (PI pin 11)
-# GPIO.setup(feeder_activated_pin, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
-# GPIO.add_event_detect(feeder_activated_pin, GPIO.BOTH, callback=FeederChange)
+feeder_activated_pin = 26 # Broadcom pin 26 (PI pin 37)
+GPIO.setup(feeder_activated_pin, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
+GPIO.add_event_detect(feeder_activated_pin, GPIO.BOTH, callback=FeederChange)
 
 modem_pin = 3 # Broadcom pin 03 (PI pin 5)
 # Connect modem_pin and ground to modem relay switch.
@@ -163,7 +162,29 @@ def RoundTimeDelta(time_delta=None, round_to=datetime.timedelta(seconds=1)):
        ) * round_to_microseconds
    return datetime.timedelta(microseconds=rounded_microseconds)
 
-def Feed(num_sec, extra=None):
+# # Feed without detecting how long the feeder was on for.
+# def Feed(num_sec, extra=None):
+#   logging.info('Feeding.')
+#   print('Feeding')
+#   # Feeder relay turns on when control is powered.
+#   GPIO.output(feeder_pin, GPIO.HIGH)
+#   time.sleep(num_sec)
+#   GPIO.output(feeder_pin, GPIO.LOW)
+#   time.sleep(1)
+#   if extra:
+#     subject_message = 'Feeding concluded (Extra)'
+#     message = 'Extra feeding concluded'
+#   else:
+#     subject_message = 'Feeding concluded'
+#     message = 'Feeding concluded'
+#   SendMail('{} {}sec'.format(subject_message, num_sec),
+#            '{} {}sec'.format(message, num_sec))
+
+def FeedWithTimeDetection(num_sec, extra=None):
+  global last_feeder_start
+  global last_feeder_stop
+  last_feeder_start = None
+  last_feeder_stop = None
   logging.info('Feeding.')
   print('Feeding')
   # Feeder relay turns on when control is powered.
@@ -171,51 +192,30 @@ def Feed(num_sec, extra=None):
   time.sleep(num_sec)
   GPIO.output(feeder_pin, GPIO.LOW)
   time.sleep(1)
-  if extra:
-    subject_message = 'Feeding concluded (Extra)'
-    message = 'Extra feeding concluded'
+  succeeded = False
+  time_fed = datetime.timedelta(seconds=0)
+  if last_feeder_start is not None and last_feeder_stop is not None:
+    time_fed = last_feeder_stop - last_feeder_start
+    succeeded = True
+  num_sec_fed = RoundTimeDelta(
+      time_fed, datetime.timedelta(seconds=1)).total_seconds()
+  print('measuring: feeder start {}, stop {}, time_fed {} ({}sec)'.format(
+            last_feeder_start, last_feeder_stop,
+            time_fed, num_sec_fed))
+  if succeeded:
+    if extra:
+      subject_message = 'Feeding Extra'
+      message = 'Extra feeding succeeded'
+    else:
+      subject_message = 'Feeding'
+      message = 'Feeding succeeded'
+    SendMail('{} {}sec ({})'.format(subject_message, num_sec, time_fed),
+             '{} (meant for {}sec, got {}).'.format(
+                 message, num_sec, time_fed))
   else:
-    subject_message = 'Feeding concluded'
-    message = 'Feeding concluded'
-  SendMail('{} {}sec'.format(subject_message, num_sec),
-           '{} {}sec'.format(message, num_sec))
-
-# def FeedWithTimeDetection(num_sec, extra=None):
-#   global last_feeder_start
-#   global last_feeder_stop
-#   last_feeder_start = None
-#   last_feeder_stop = None
-#   logging.info('Feeding.')
-#   print('Feeding')
-#   # Feeder relay turns on when control is grounded.
-#   GPIO.output(feeder_pin, GPIO.LOW)
-#   time.sleep(num_sec)
-#   GPIO.output(feeder_pin, GPIO.HIGH)
-#   time.sleep(1)
-#   succeeded = False
-#   time_fed = datetime.timedelta(seconds=0)
-#   if last_feeder_start is not None and last_feeder_stop is not None:
-#     time_fed = last_feeder_stop - last_feeder_start
-#     succeeded = True
-#   num_sec_fed = RoundTimeDelta(
-#       time_fed, datetime.timedelta(seconds=1)).total_seconds()
-#   print('measuring: feeder start {}, stop {}, time_fed {} ({}sec)'.format(
-#             last_feeder_start, last_feeder_stop,
-#             time_fed, num_sec_fed))
-#   if succeeded:
-#     if extra:
-#       subject_message = 'Feeding Extra'
-#       message = 'Extra feeding succeeded'
-#     else:
-#       subject_message = 'Feeding'
-#       message = 'Feeding succeeded'
-#     SendMail('{} {}sec ({})'.format(subject_message, num_sec, time_fed),
-#              '{} (meant for {}sec, got {}).'.format(
-#                  message, num_sec, time_fed))
-#   else:
-#     SendMail('FEEDING FAILED!!!',
-#              'FEEDING FAILED, meant for {} but got {}.'.format(
-#                  num_sec, time_fed))
+    SendMail('FEEDING FAILED!!!',
+             'FEEDING FAILED, meant for {} but got {}.'.format(
+                 num_sec, time_fed))
 
 
 def NetworkIsDown():
@@ -257,7 +257,7 @@ def Modem(num_sec):
   print('Resetting modem.')
   logging.info('Resetting modem.')
   network_logger.info('Resetting modem.')
-  # Modem relay turns on when control is grounded.
+  # Modem relay turns on when control is powered.
   GPIO.output(modem_pin, GPIO.HIGH)
   time.sleep(num_sec)
   GPIO.output(modem_pin, GPIO.LOW)
@@ -307,7 +307,7 @@ def ControlLoop():
           SendMail('FEEDING SKIPPED!!!',
                    'FEEDING SKIPPED, would have been {}sec.'.format(num_sec))
         else:
-          Feed(num_sec, extra)
+          FeedWithTimeDetection(num_sec, extra)
         continue
       m = re.match(r'cycle(?:\s+(\d+))?$', data)
       if m:
