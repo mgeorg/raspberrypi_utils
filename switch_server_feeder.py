@@ -150,7 +150,7 @@ Message creation time: {}
 def RoundTimeDelta(time_delta=None, round_to=datetime.timedelta(seconds=1)):
    """Round a datetime.timedelta object to some number of seconds.
    time_delta : datetime.timedelta object
-   rount_to : datetime.timedelta round to this interval
+   round_to : datetime.timedelta round to this interval
    """
    if time_delta is None : return None
    microseconds = (time_delta.microseconds +
@@ -198,10 +198,9 @@ def FeedWithTimeDetection(num_sec, extra=None):
     time_fed = last_feeder_stop - last_feeder_start
     succeeded = True
   num_sec_fed = RoundTimeDelta(
-      time_fed, datetime.timedelta(seconds=1)).total_seconds()
-  print('measuring: feeder start {}, stop {}, time_fed {} ({}sec)'.format(
-            last_feeder_start, last_feeder_stop,
-            time_fed, num_sec_fed))
+      time_fed, datetime.timedelta(milliseconds=10)).total_seconds()
+  print('measuring: feeder start {last_feeder_start}, '.format(last_feeder_start=last_feeder_start) +
+        'stop {last_feeder_stop}, time_fed {time_fed} ({num_sec_fed}sec)'.format(last_feeder_stop=last_feeder_stop, time_fed=time_fed, num_sec_fed=num_sec_fed))
   if succeeded:
     if extra:
       subject_message = 'Feeding Extra'
@@ -209,13 +208,11 @@ def FeedWithTimeDetection(num_sec, extra=None):
     else:
       subject_message = 'Feeding'
       message = 'Feeding succeeded'
-    SendMail('{} {}sec ({})'.format(subject_message, num_sec, time_fed),
-             '{} (meant for {}sec, got {}).'.format(
-                 message, num_sec, time_fed))
+    SendMail('{subject_message} {num_sec}sec (got {num_sec_fed})'.format(subject_message=subject_message, num_sec=num_sec, num_sec_fed=num_sec_fed),
+             '{message} (meant for {num_sec}sec, got {num_sec_fed}).'.format(message=message,num_sec=num_sec, num_sec_fed=num_sec_fed))
   else:
-    SendMail('FEEDING FAILED!!!',
-             'FEEDING FAILED, meant for {} but got {}.'.format(
-                 num_sec, time_fed))
+    SendMail('FEEDING FAILED! Wanted {num_sec}sec (got {num_sec_fed})'.format(num_sec=num_sec, num_sec_fed=num_sec_fed),
+             'FEEDING FAILED, meant for {num_sec} but got {num_sec_fed}.'.format(num_sec=num_sec, num_sec_fed=num_sec_fed))
 
 
 def NetworkIsDown():
@@ -293,13 +290,10 @@ def ControlLoop():
       if m:
         print('"' + m.group(1) + '"')
         continue
-      m = re.match(r'feed\s+(extra\s+)?(\d+)?$', data)
+      m = re.match(r'feed(\s+extra)?(\s+\d+)?$', data)
       if m:
         num_sec = 5  # Default feeder on time.
-        if m.group(1):
-          extra = True
-        else:
-          extra = False
+        extra = bool(m.group(1))
         if m.group(2):
           num_sec = int(m.group(2).strip())
         if FileTouched(skip_feeding_file, True):
