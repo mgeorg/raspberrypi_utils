@@ -265,11 +265,13 @@ def Modem(num_sec):
   with open(network_log_file, 'r') as f:
     network_log_lines = f.read().splitlines()
   if len(network_log_lines) > 100:
-    network_logs = '<truncated>...\n' + '\n'.join(network_log_lines[-100:])
+    truncated_log_lines = network_log_lines[-100:]
+    truncated_log_lines.reverse()
+    network_logs = '<truncated>...\n' + '\n'.join(truncated_log_lines)
   else:
     network_logs = '\n'.join(network_log_lines)
   SendMail('Modem Power-Cycled',
-           'The Modem was power cycled at {}.\n\nNetwork logs:\n{}'.format(
+           'The Modem would have been power cycled (if the relay was in place) at {}.\n\nNetwork logs:\n{}'.format(
                str(datetime.datetime.now()), network_logs))
 
 
