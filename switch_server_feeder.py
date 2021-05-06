@@ -1,6 +1,7 @@
 #!/usr/bin/python
 
 import datetime
+import json
 import logging
 import os
 import re
@@ -24,6 +25,10 @@ last_feeder_start = None
 last_feeder_stop = None
 
 skip_feeding_file = '/home/mgeorg/wakeup/data/skip_feeding.txt'
+
+email_file = '/home/mgeorg/wakeup/data/emails.json'
+with open(email_file, 'r') as f:
+  email_mapping = json.loads(f.read())
 
 def CheckPid(pid):
   """ Check For the existence of a unix pid. """
@@ -129,23 +134,25 @@ def Quit():
   network_logger.info('Quitting.')
 
 
-def SendMail(subject, content):
+def SendMail(subject, content, address_list=[email_mapping['default']]):
   start_time = datetime.datetime.now()
   print('Sending email:\nsubject: {}\n'.format(subject))
   logging.info('Sending email with subject: {}'.format(subject))
-  p = subprocess.Popen(['msmtpq', 'manfred.georg@gmail.com'],
-      stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-  # This will timeout after a few seconds if there is no network connection.
-  p.communicate(
-"""From: Scarfie's Feeder <manfred.georg.automated@gmail.com>
+  for address in address_list:
+    p = subprocess.Popen(['msmtpq', address],
+        stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    # This will timeout after a few seconds if there is no network connection.
+    p.communicate(
+"""From: Scarfie's Feeder <{}>
 Subject: {}
 
 {}
 
 ---
 Message creation time: {}
-""".format(subject, content, str(datetime.datetime.now())))
-  logging.info('Finished sending/enqueuing, returncode = %d.' % p.returncode)
+""".format(email_mapping['feeder'], subject, content,
+           str(datetime.datetime.now())))
+    logging.info('Finished sending/enqueuing, returncode = %d.' % p.returncode)
 
 def RoundTimeDelta(time_delta=None, round_to=datetime.timedelta(seconds=1)):
    """Round a datetime.timedelta object to some number of seconds.
@@ -251,28 +258,32 @@ def NetworkIsUp():
 
 def Modem(num_sec):
   global network_logger
-  print('Resetting modem.')
-  logging.info('Resetting modem.')
-  network_logger.info('Resetting modem.')
+  print('SIMULATED: Resetting modem.')
+  logging.info('SIMULATED: Resetting modem.')
+  network_logger.info('SIMULATED: Resetting modem.')
   # Modem relay turns on when control is powered.
   GPIO.output(modem_pin, GPIO.HIGH)
   time.sleep(num_sec)
   GPIO.output(modem_pin, GPIO.LOW)
-  print('Power restored to modem.')
-  logging.info('Power restored to modem.')
-  network_logger.info('Power restored to modem.')
+  print('SIMULATED: Power restored to modem.')
+  logging.info('SIMULATED: Power restored to modem.')
+  network_logger.info('SIMULATED: Power restored to modem.')
   # There will be no network at this point.
   with open(network_log_file, 'r') as f:
     network_log_lines = f.read().splitlines()
   if len(network_log_lines) > 100:
     truncated_log_lines = network_log_lines[-100:]
     truncated_log_lines.reverse()
-    network_logs = '<truncated>...\n' + '\n'.join(truncated_log_lines)
+    truncated_log_lines.append('<truncated>')
   else:
-    network_logs = '\n'.join(network_log_lines)
-  SendMail('Modem Power-Cycled',
-           'The Modem would have been power cycled (if the relay was in place) at {}.\n\nNetwork logs:\n{}'.format(
-               str(datetime.datetime.now()), network_logs))
+    truncated_log_lines = network_log_lines[:]
+    truncated_log_lines.reverse()
+  network_logs = '\n'.join(truncated_log_lines)
+  SendMail('Borg Internet Network Report',
+           'The internet was down and the relay would have been '
+           'triggered at {}.\n\nNetwork logs:\n{}'.format(
+               str(datetime.datetime.now()), network_logs),
+           address_list=[email_mapping['default'], email_mapping['extra']])
 
 
 def ControlLoop():
